@@ -122,16 +122,9 @@ this.addCommand({
 	}
 
 
-	onunload() {
-	}
+	onunload(){};
 
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
-	}
 
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
 }
 
 class SampleModal extends Modal {

@@ -111,17 +111,21 @@ this.addCommand({
 			return;
 		}
 
-		this.selectedCanvasNodes = selection.map((node) => ({
-		id: node.id ?? node.data?.id ?? "",
-		type: inferCanvasNodeType(node),
-		x: node.x ?? node.data?.x,
-		y: node.y ?? node.data?.y,
-		width: node.width ?? node.data?.width,
-		height: node.height ?? node.data?.height,
-		text: typeof (node.text ?? node.data?.text) === "string" ? (node.text ?? node.data?.text) : undefined,
-		file: typeof (node.file ?? node.data?.file) === "string" ? (node.file ?? node.data?.file) : undefined
+		this.selectedCanvasNodes = selection.map((node) => {
+    const textValue = node.text ?? node.data?.text;
+    const fileValue = node.file ?? node.data?.file;
 
-		}));
+    return {
+        id: node.id ?? node.data?.id ?? "",
+        type: inferCanvasNodeType(node),
+        x: node.x ?? node.data?.x,
+        y: node.y ?? node.data?.y,
+        width: node.width ?? node.data?.width,
+        height: node.height ?? node.data?.height,
+        text: typeof textValue === "string" ? textValue : undefined,
+        file: typeof fileValue === "string" ? fileValue : undefined,
+    };
+});
 
 		console.debug("原始选中节点对象:", selection);
 		console.debug("提取后的节点信息:", this.selectedCanvasNodes);

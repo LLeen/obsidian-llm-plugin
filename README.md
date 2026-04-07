@@ -1,90 +1,65 @@
-# Obsidian Sample Plugin
+# Obsidian Canvas LLM Plugin
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+## Overview
+This project is an Obsidian plugin that extracts information from selected Canvas nodes and sends the text to an external LLM-powered API for summarization and insight generation.
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+The goal of this project is to help users better understand their mind maps, discover possible connections between ideas, and think more deeply about their notes.
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open modal (simple)" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+This project is written in TypeScript and uses the Obsidian Plugin API.
 
-## First time developing plugins?
+## Current Status
+Early development / iterative build.
 
-Quick starting guide for new plugin devs:
+The plugin can already detect selected Canvas nodes and extract basic node information such as text content, position, size, and id.
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+## Features
 
-## Releasing new releases
+### Implemented
+- [x] Detect selected node(s) in Obsidian Canvas
+- [x] Extract selected node text content
+- [x] Save selected node information into variables
+- [x] Build a basic text packet by concatenating selected node texts
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+### In Progress
+- [ ] Send extracted text to external API
+- [ ] Improve packet structure for LLM context
+- [ ] Add logging and error handling
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+### Planned
+- [ ] Read linked/related node context
+- [ ] Display returned AI response inside Obsidian
+- [ ] Context size control / token budget strategy
+- [ ] Settings panel for API configuration
 
-## Adding your plugin to the community plugin list
+## Iteration Log
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+### Iteration 1
+- Set up plugin development environment
+- Learned basic Obsidian plugin structure
+- Confirmed Canvas view access
 
-## How to use
+### Iteration 2
+- Detected selected Canvas nodes
+- Extracted node information into variables
+- Explored the actual data structure of selected Canvas nodes
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+### Iteration 3
+- Extracted text from selected nodes
+- Built a simple concatenated text packet
 
-## Manually installing the plugin
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+## Tech Stack
+- TypeScript
+- Obsidian Plugin API
+- Node.js
+- npm
 
-## Improve code quality with eslint
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- This project already has eslint preconfigured, you can invoke a check by running`npm run lint`
-- Together with a custom eslint [plugin](https://github.com/obsidianmd/eslint-plugin) for Obsidan specific code guidelines.
-- A GitHub action is preconfigured to automatically lint every commit on all branches.
+## Next Steps
+- Finish basic API request flow
+- Validate returned response
+- Render the result inside Obsidian
+- Expand from plain text packet to structured context packet
 
-## Funding URL
-
-You can include funding URLs where people who use your plugin can financially support it.
-
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
-
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
-```
-
-If you have multiple URLs, you can also do:
-
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
-```
-
-## API Documentation
-
-See https://docs.obsidian.md
+## Development Approach
+This project is being developed iteratively.
+Each iteration focuses on one small, testable feature before moving to the next step.

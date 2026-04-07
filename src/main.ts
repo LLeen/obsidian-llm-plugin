@@ -13,7 +13,7 @@ text?: string;
 file?: string;
 };
 
-function inferCanvasNodeType(node: any): "text" | "file" | "link" | "group" | "unknown" {
+function inferCanvasNodeType(node: any): "text" | "file" | "unknown" {
 	if (typeof node?.type === "string") return node.type;
 	if (typeof node?.data?.type === "string") return node.data.type;
 

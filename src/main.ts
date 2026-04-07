@@ -1,5 +1,5 @@
-import {App, Editor, MarkdownView, Modal, Notice, Plugin, ItemView} from 'obsidian';
-import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
+import {Notice, Plugin, ItemView} from 'obsidian';
+import {DEFAULT_SETTINGS, CanvasNodeCollectorSettings} from "./settings";
 
 // Remember to rename these classes and interfaces!
 type SelectedCanvasNodeInfo = {
@@ -13,35 +13,54 @@ text?: string;
 file?: string;
 };
 
-function inferCanvasNodeType(node: any): "text" | "file" | "unknown" {
-	if (typeof node?.type === "string") return node.type;
-	if (typeof node?.data?.type === "string") return node.data.type;
+type CanvasNodeLike = {
+id?: string;
+type?: unknown;
+x?: number;
+y?: number;
+width?: number;
+height?: number;
+text?: unknown;
+file?: unknown;
+data?: {
+id?: string;
+type?: unknown;
+x?: number;
+y?: number;
+width?: number;
+height?: number;
+text?: unknown;
+file?: unknown;
+};
+};
 
-	if (typeof node?.text === "string") return "text";
-	if (typeof node?.file === "string") return "file";
+function inferCanvasNodeType(node: CanvasNodeLike): "text" | "file" | "unknown" {
+	if (typeof node.type === "string") {
+		if (node.type === "text" || node.type === "file") return node.type;
+	}
+
+	if (typeof node.data?.type === "string") {
+		if (node.data.type === "text" || node.data.type === "file") return node.data.type;
+	}
+
+	if (typeof node.text === "string") return "text";
+	if (typeof node.file === "string") return "file";
 
 	return "unknown";
 }
+//avoid using any for view.
+interface CanvasViewLike extends ItemView {
+    canvas: {
+        selection: Set<CanvasNodeLike>;
+    };
+}
 
-export default class MyPlugin extends Plugin {
+export default class CanvasNodeCollectorPlugin extends Plugin {
 	selectedCanvasNodes: SelectedCanvasNodeInfo[] = [];
-    settings: MyPluginSettings;
+    settings: CanvasNodeCollectorSettings;
 
 	async onload() {
 		await this.loadSettings();
-
-		// This creates an icon in the left ribbon.
-
-		this.addRibbonIcon('dice', 'Sample', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
-
-
        //This adds a command for saving the info of selected nodes.
 		this.addCommand({
 			id: "save-selected-canvas-nodes",
@@ -63,7 +82,7 @@ this.addCommand({
 				}
                 new Notice("已发送");
 				const packedText = this.buildSelectedNodesTextPacket();
-				console.log("打包后的文本:", packedText);
+				console.debug("打包后的文本:", packedText);
 
 				//await this.sendTextToApi(packedText);
 			}
@@ -78,13 +97,13 @@ this.addCommand({
 			return;
 		}
 
-		const canvas = (view as any).canvas;
-		if (!canvas) {
+		const canvasView = view as CanvasViewLike;
+		if (!canvasView.canvas) {
 			new Notice("没有拿到 canvas 对象");
 			return;
 		}
 
-		const selection = Array.from(canvas.selection ?? []);
+		const selection = Array.from(canvasView.canvas.selection ?? []);
 
 		if (selection.length === 0) {
 			new Notice("当前没有选中任何节点");
@@ -92,21 +111,20 @@ this.addCommand({
 			return;
 		}
 
-		this.selectedCanvasNodes = selection.map((node: any) => {
-           return {
-		id: node.id ?? node.data?.id,
+		this.selectedCanvasNodes = selection.map((node) => ({
+		id: node.id ?? node.data?.id ?? "",
 		type: inferCanvasNodeType(node),
 		x: node.x ?? node.data?.x,
 		y: node.y ?? node.data?.y,
 		width: node.width ?? node.data?.width,
 		height: node.height ?? node.data?.height,
-		text: node.text ?? node.data?.text,
-		file: node.file ?? node.data?.file
-	};
-		});
+		text: typeof (node.text ?? node.data?.text) === "string" ? (node.text ?? node.data?.text) : undefined,
+		file: typeof (node.file ?? node.data?.file) === "string" ? (node.file ?? node.data?.file) : undefined
 
-		console.log("原始选中节点对象:", selection);
-		console.log("提取后的节点信息:", this.selectedCanvasNodes);
+		}));
+
+		console.debug("原始选中节点对象:", selection);
+		console.debug("提取后的节点信息:", this.selectedCanvasNodes);
 		new Notice(`已保存 ${this.selectedCanvasNodes.length} 个节点`);
 
 	}
@@ -127,26 +145,10 @@ this.addCommand({
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<CanvasNodeCollectorSettings>);
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
 	}
 }

@@ -1,18 +1,18 @@
 import {App, PluginSettingTab, Setting} from "obsidian";
-import MyPlugin from "./main";
+import CanvasNodeCollectorPlugin  from "./main";
 
-export interface MyPluginSettings {
+export interface CanvasNodeCollectorSettings  {
 	mySetting: string;
 }
 
-export const DEFAULT_SETTINGS: MyPluginSettings = {
+export const DEFAULT_SETTINGS: CanvasNodeCollectorSettings  = {
 	mySetting: 'default'
 }
 
-export class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+export class CanvasNodeCollectorSettingTab   extends PluginSettingTab {
+	plugin: CanvasNodeCollectorPlugin;
 
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: CanvasNodeCollectorPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}

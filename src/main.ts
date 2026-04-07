@@ -40,6 +40,8 @@ export default class MyPlugin extends Plugin {
 		const statusBarItemEl = this.addStatusBarItem();
 		statusBarItemEl.setText('Status bar text');
 
+
+       //This adds a command for saving the info of selected nodes.
 		this.addCommand({
 			id: "save-selected-canvas-nodes",
 			name: "Save selected canvas nodes",
@@ -47,7 +49,26 @@ export default class MyPlugin extends Plugin {
 				this.saveSelectedCanvasNodes();
 			}
 		});
+
+// This adds a command for send the saved info to xxx.
+this.addCommand({
+			id: "send-selected-canvas-text",
+			name: "Send selected canvas text",
+			callback: async () => {
+
+				if (this.selectedCanvasNodes.length === 0) {
+					new Notice("没有可发送的节点");
+					return;
+				}
+                new Notice("已发送");
+				const packedText = this.buildSelectedNodesTextPacket();
+				console.log("打包后的文本:", packedText);
+
+				//await this.sendTextToApi(packedText);
+			}
+		});
 	}
+
     saveSelectedCanvasNodes() {
 		const view = this.app.workspace.getActiveViewOfType(ItemView);
 
@@ -85,16 +106,21 @@ export default class MyPlugin extends Plugin {
 
 		console.log("原始选中节点对象:", selection);
 		console.log("提取后的节点信息:", this.selectedCanvasNodes);
-
-        for (const node of selection) {
-	console.log("node =", node);
-	console.log("node.type =", node?.type);
-	console.log("node.data?.type =", node?.data?.type);
-	console.log("inferred type =", inferCanvasNodeType(node));
-}
-
 		new Notice(`已保存 ${this.selectedCanvasNodes.length} 个节点`);
+
 	}
+
+   buildSelectedNodesTextPacket(): string {
+		const textParts = this.selectedCanvasNodes
+			.filter((node) => typeof node.text === "string" && node.text.trim().length > 0)
+			.map((node, index) => {
+				return `Node ${index + 1}:\n${node.text}`;
+			});
+
+		const result = textParts.join("\n\n---\n\n");
+        return result;
+	}
+
 
 	onunload() {
 	}

@@ -77,12 +77,12 @@ this.addCommand({
 			callback: async () => {
 
 				if (this.selectedCanvasNodes.length === 0) {
-					new Notice("没有可发送的节点");
+					new Notice("Hi,没有可发送的节点");
 					return;
 				}
                 new Notice("已发送");
 				const packedText = this.buildSelectedNodesTextPacket();
-				console.debug("打包后的文本:", packedText);
+				console.debug("Hi,打包后的文本:", packedText);
 
 				//await this.sendTextToApi(packedText);
 			}
@@ -93,20 +93,20 @@ this.addCommand({
 		const view = this.app.workspace.getActiveViewOfType(ItemView);
 
 		if (!view || view.getViewType() !== "canvas") {
-			new Notice("当前不是 Canvas 视图");
+			new Notice("Hi,当前不是 Canvas 视图");
 			return;
 		}
 
 		const canvasView = view as CanvasViewLike;
 		if (!canvasView.canvas) {
-			new Notice("没有拿到 canvas 对象");
+			new Notice("Hi,没有拿到 canvas 对象");
 			return;
 		}
 
 		const selection = Array.from(canvasView.canvas.selection ?? []);
 
 		if (selection.length === 0) {
-			new Notice("当前没有选中任何节点");
+			new Notice("Hi,当前没有选中任何节点");
 			this.selectedCanvasNodes = [];
 			return;
 		}
@@ -127,8 +127,8 @@ this.addCommand({
     };
 });
 
-		console.debug("原始选中节点对象:", selection);
-		console.debug("提取后的节点信息:", this.selectedCanvasNodes);
+		console.debug("Hi,原始选中节点对象:", selection);
+		console.debug("Hi,提取后的节点信息:", this.selectedCanvasNodes);
 		new Notice(`已保存 ${this.selectedCanvasNodes.length} 个节点`);
 
 	}

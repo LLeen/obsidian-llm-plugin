@@ -77,12 +77,14 @@ this.addCommand({
 			callback: async () => {
 
 				if (this.selectedCanvasNodes.length === 0) {
-					new Notice("Hi,没有可发送的节点");
+					new Notice("没有可发送的节点");
 					return;
 				}
+// eslint-disable-next-line obsidianmd/ui/sentence-case
                 new Notice("已发送");
 				const packedText = this.buildSelectedNodesTextPacket();
-				console.debug("Hi,打包后的文本:", packedText);
+// eslint-disable-next-line obsidianmd/ui/sentence-case
+				console.debug("打包后的文本:", packedText);
 
 				//await this.sendTextToApi(packedText);
 			}
@@ -93,12 +95,14 @@ this.addCommand({
 		const view = this.app.workspace.getActiveViewOfType(ItemView);
 
 		if (!view || view.getViewType() !== "canvas") {
+// eslint-disable-next-line obsidianmd/ui/sentence-case
 			new Notice("Hi,当前不是 Canvas 视图");
 			return;
 		}
 
 		const canvasView = view as CanvasViewLike;
 		if (!canvasView.canvas) {
+// eslint-disable-next-line obsidianmd/ui/sentence-case
 			new Notice("Hi,没有拿到 canvas 对象");
 			return;
 		}
@@ -106,6 +110,7 @@ this.addCommand({
 		const selection = Array.from(canvasView.canvas.selection ?? []);
 
 		if (selection.length === 0) {
+// eslint-disable-next-line obsidianmd/ui/sentence-case
 			new Notice("Hi,当前没有选中任何节点");
 			this.selectedCanvasNodes = [];
 			return;
@@ -126,9 +131,11 @@ this.addCommand({
         file: typeof fileValue === "string" ? fileValue : undefined,
     };
 });
-
+        // eslint-disable-next-line obsidianmd/ui/sentence-case
 		console.debug("Hi,原始选中节点对象:", selection);
+       // eslint-disable-next-line obsidianmd/ui/sentence-case
 		console.debug("Hi,提取后的节点信息:", this.selectedCanvasNodes);
+       // eslint-disable-next-line obsidianmd/ui/sentence-case
 		new Notice(`已保存 ${this.selectedCanvasNodes.length} 个节点`);
 
 	}

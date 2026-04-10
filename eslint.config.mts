@@ -22,6 +22,12 @@ export default tseslint.config(
 		},
 	},
 	...obsidianmd.configs.recommended,
+	{       files: ['src/**/*.ts'],
+    		rules: {
+    			'no-restricted-globals': 'off',
+    			'obsidianmd/ui/sentence-case': 'off',
+    		},
+    	},
 	globalIgnores([
 		"node_modules",
 		"dist",

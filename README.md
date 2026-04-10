@@ -10,26 +10,35 @@ This project is written in TypeScript and uses the Obsidian Plugin API.
 ## Current Status
 Early development / iterative build.
 
-The plugin can already detect selected Canvas nodes and extract basic node information such as text content, position, size, and id.
+The plugin can already detect selected Canvas nodes and extract basic node information such as text content, position, size, and id. And build a simple context packet, and send it to an external LLM API. Basic response parsing and error handling are being added.
 
 ## Features
 
+## Project Structure
+- `src/main.ts`: plugin entry point
+- `src/services/contextService.ts`: canvas node extraction and packet building
+- `src/services/llm/client.ts`: external LLM API request and response parsing
+- `eslint.config.mts`: ESLint configuration for TypeScript and Obsidian plugin rules
 ### Implemented
 - [x] Detect selected node(s) in Obsidian Canvas
 - [x] Extract selected node text content
 - [x] Save selected node information into variables
 - [x] Build a basic text packet by concatenating selected node texts
+- [x] Add initial external LLM API request flow
+- [x] Parse basic text response from API
 
 ### In Progress
-- [ ] Send extracted text to external API
 - [ ] Improve packet structure for LLM context
-- [ ] Add logging and error handling
+- [ ] Improve response validation and fallback handling
+- [ ] Render returned AI response inside Obsidian
+- [ ] Clean up lint / Obsidian-specific request rules
 
 ### Planned
 - [ ] Read linked/related node context
 - [ ] Display returned AI response inside Obsidian
 - [ ] Context size control / token budget strategy
 - [ ] Settings panel for API configuration
+- [ ] Better UI feedback for loading / errors
 
 ## Iteration Log
 
@@ -46,8 +55,13 @@ The plugin can already detect selected Canvas nodes and extract basic node infor
 ### Iteration 3
 - Extracted text from selected nodes
 - Built a simple concatenated text packet
--Refactored canvas context logic into `contextService.ts`.
+- Refactored canvas context logic into `contextService.ts`.
 
+### Iteration 4
+- Added initial API client for external LLM requests
+- Implemented basic response parsing for returned text
+- Started handling empty / invalid API responses
+- Investigated TypeScript and ESLint issues related to API response typing and Obsidian request rules
 
 ## Tech Stack
 - TypeScript
@@ -64,3 +78,9 @@ The plugin can already detect selected Canvas nodes and extract basic node infor
 ## Development Approach
 This project is being developed iteratively.
 Each iteration focuses on one small, testable feature before moving to the next step.
+
+## Development Notes
+- The current API integration is still experimental and may change as the request/response format is refined.
+- Obsidian-specific lint rules and request patterns are being reviewed during development.
+- Some ESLint rules are temporarily adjusted to match the current development stage and implementation approach.
+- The project is being built step by step with small testable iterations.

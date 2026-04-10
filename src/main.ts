@@ -1,8 +1,8 @@
 import {Notice, Plugin, ItemView} from 'obsidian';
-import {DEFAULT_SETTINGS, CanvasNodeCollectorSettings} from "./settings";
+import {DEFAULT_SETTINGS, CanvasNodeCollectorSettings, CanvasNodeCollectorSettingTab} from "./settings";
 import type { SelectedCanvasNodeInfo, CanvasNodeLike} from "./types";
 import {buildSelectedNodesTextPacket, collectSelectedCanvasNodes} from "./services/contextService";
-
+import {generateAnswer} from "./services/llm/service";
 //avoid using any for view.
 interface CanvasViewLike extends ItemView {
     canvas: {
@@ -16,6 +16,7 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+        this.addSettingTab(new CanvasNodeCollectorSettingTab(this.app, this));
        //This adds a command for saving the info of selected nodes.
 		this.addCommand({
 			id: "save-selected-canvas-nodes",
@@ -25,25 +26,68 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 			}
 		});
 
-// This adds a command for send the saved info to xxx.
-this.addCommand({
-			id: "send-selected-canvas-text",
-			name: "Send selected canvas text",
+
+        this.addCommand({
+			id: "test-zhipu-api",
+			name: "Test Zhipu API",
 			callback: async () => {
+				try {
+					const result = await generateAnswer({
+						apiKey: this.settings.apiKey,
+						baseUrl: this.settings.baseUrl,
+						model: this.settings.model,
+						temperature: this.settings.temperature,
+						maxTokens: this.settings.maxTokens,
+						contextText:"重复这句话",
+						userInput: "Summarize the core idea in Chinese.",
+					});
 
-				if (this.selectedCanvasNodes.length === 0) {
-					new Notice("没有可发送的节点");
-					return;
+					console.debug("LLM response text:", result.text);
+					new Notice("Zhipu API call succeeded. Check console output.");
+				} catch (error) {
+					const message = error instanceof Error ? error.message : "Unknown error";
+					console.error("Zhipu API call failed:", message);
+					new Notice(`Zhipu API call failed: ${message}`);
+                    console.debug("Current model:", this.settings.model);
 				}
-// eslint-disable-next-line obsidianmd/ui/sentence-case
-                new Notice("已发送");
-				const packedText = this.buildCurrentContextPacket();
-// eslint-disable-next-line obsidianmd/ui/sentence-case
-				console.debug("打包后的文本:", packedText);
-
-				//await this.sendTextToApi(packedText);
-			}
+			},
 		});
+
+        this.addCommand({
+	id: "send-selected-canvas-text",
+	name: "Send selected canvas text",
+	callback: async () => {
+
+        this.saveSelectedCanvasNodes();
+		if (this.selectedCanvasNodes.length === 0) {
+			new Notice("没有可发送的节点");
+			return;
+		}
+
+		const packedText = this.buildCurrentContextPacket();
+
+		try {
+			const result = await generateAnswer({
+				apiKey: this.settings.apiKey,
+				baseUrl: this.settings.baseUrl,
+				model: this.settings.model,
+				temperature: this.settings.temperature,
+				maxTokens: this.settings.maxTokens,
+				contextText: packedText,
+				userInput: "请根据这些节点内容进行总结。"
+			});
+
+			console.debug("LLM response text:", result.text);
+            console.debug(result.raw);
+			new Notice("发送成功，请查看控制台输出");
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Unknown error";
+			console.error("Zhipu API call failed:", message);
+			new Notice(`Zhipu API call failed: ${message}`);
+
+		}
+	},
+});
 	}
 
 
@@ -97,7 +141,8 @@ buildCurrentContextPacket(): string {
 
 
 
-	onunload() {
+onunload() {
+
 	}
 
 	async loadSettings() {

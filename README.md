@@ -46,6 +46,7 @@ The plugin can already detect selected Canvas nodes and extract basic node infor
 ### Iteration 3
 - Extracted text from selected nodes
 - Built a simple concatenated text packet
+-Refactored canvas context logic into `contextService.ts`.
 
 
 ## Tech Stack

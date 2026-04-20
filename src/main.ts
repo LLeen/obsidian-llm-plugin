@@ -1,7 +1,11 @@
 import {Notice, Plugin, ItemView} from "obsidian";
 import {DEFAULT_SETTINGS, CanvasNodeCollectorSettings, CanvasNodeCollectorSettingTab} from "./settings";
 import type {SelectedCanvasNodeInfo, CanvasNodeLike} from "./types";
-import {buildSelectedNodesTextPacket, collectSelectedCanvasNodes} from "./services/contextService";
+import {
+	buildSelectedNodesContextPacket,
+	buildSelectedNodesTextPacket,
+	collectSelectedCanvasNodes,
+} from "./services/contextService";
 import {generateAnswer} from "./services/llm/service";
 
 // avoid using any for view.
@@ -67,7 +71,7 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 					return;
 				}
 
-				const packedText = this.buildCurrentContextPacket();
+				const packedText = await this.buildCurrentContextPacket();
 
 				try {
 					const result = await generateAnswer({
@@ -131,8 +135,31 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 		return true;
 	}
 
-	buildCurrentContextPacket(): string {
-		return buildSelectedNodesTextPacket(this.selectedCanvasNodes);
+	async buildCurrentContextPacket(): Promise<string> {
+		let canvasText: string | undefined;
+		const activeFile = this.app.workspace.getActiveFile();
+
+		if (activeFile?.extension === "canvas") {
+			try {
+				canvasText = await this.app.vault.cachedRead(activeFile);
+			} catch (error) {
+				console.debug("Failed to read active canvas file for related context:", error);
+			}
+		}
+
+		const packet = buildSelectedNodesContextPacket(this.selectedCanvasNodes, canvasText);
+		console.debug("primaryContext:", {
+			nodeCount: packet.primary.nodeCount,
+			textNodeCount: packet.primary.textNodeCount,
+			fileNodeCount: packet.primary.fileNodeCount,
+			nodes: packet.primary.nodes,
+			truncated: packet.primary.truncated,
+			omittedNodeCount: packet.primary.omittedNodeCount,
+			limits: packet.limits,
+		});
+		console.debug("relatedContext:", packet.related);
+		console.debug("legacyTextPacket:", packet.legacyTextPacket);
+		return buildSelectedNodesTextPacket(this.selectedCanvasNodes, canvasText);
 	}
 
 	onunload() {

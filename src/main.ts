@@ -2,6 +2,7 @@ import {Notice, Plugin} from "obsidian";
 import {DEFAULT_SETTINGS, CanvasNodeCollectorSettings, CanvasNodeCollectorSettingTab} from "./settings";
 import type {SelectedCanvasNodeInfo} from "./canvasTypes";
 import {getActiveCanvasSelection, readActiveCanvasFileText} from "./services/canvasService";
+import {appendLlmSummaryNodeToActiveCanvas} from "./services/canvasResultService";
 import {
 	buildSelectedNodesContextPacket,
 	buildSelectedNodesTextPacket,
@@ -89,7 +90,18 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 
 					console.debug("LLM response text:", result.text);
 					console.debug(result.raw);
-					new Notice("Sent successfully. Check the console output.");
+
+					try {
+						await appendLlmSummaryNodeToActiveCanvas(this.app, {
+							selectedNodes: this.selectedCanvasNodes,
+							resultText: result.text,
+						});
+						new Notice("Sent successfully. Added summary node to Canvas.");
+					} catch (error) {
+						const message = error instanceof Error ? error.message : "Unknown error";
+						console.error("Failed to add LLM result to Canvas:", message);
+						new Notice(`Sent successfully, but failed to add result to Canvas: ${message}`);
+					}
 				} catch (error) {
 					const message = error instanceof Error ? error.message : "Unknown error";
 					console.error("Zhipu API call failed:", message);

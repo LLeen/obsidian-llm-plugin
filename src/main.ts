@@ -1,19 +1,13 @@
-import {Notice, Plugin, ItemView} from "obsidian";
+import {Notice, Plugin} from "obsidian";
 import {DEFAULT_SETTINGS, CanvasNodeCollectorSettings, CanvasNodeCollectorSettingTab} from "./settings";
-import type {SelectedCanvasNodeInfo, CanvasNodeLike} from "./types";
+import type {SelectedCanvasNodeInfo} from "./canvasTypes";
+import {getActiveCanvasSelection, readActiveCanvasFileText} from "./services/canvasService";
 import {
 	buildSelectedNodesContextPacket,
 	buildSelectedNodesTextPacket,
 	collectSelectedCanvasNodes,
 } from "./services/contextService";
 import {generateAnswer} from "./services/llm/service";
-
-// avoid using any for view.
-interface CanvasViewLike extends ItemView {
-	canvas: {
-		selection: Set<CanvasNodeLike>;
-	};
-}
 
 export default class CanvasNodeCollectorPlugin extends Plugin {
 	selectedCanvasNodes: SelectedCanvasNodeInfo[] = [];
@@ -97,24 +91,23 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 	}
 
 	saveSelectedCanvasNodes(): boolean {
-		const view = this.app.workspace.getActiveViewOfType(ItemView);
+		const selectionResult = getActiveCanvasSelection(this.app);
 
-		if (!view || view.getViewType() !== "canvas") {
+		if (selectionResult.status === "not-canvas") {
 			// eslint-disable-next-line obsidianmd/ui/sentence-case
 			this.selectedCanvasNodes = [];
 			new Notice("The active view is not a Canvas.");
 			return false;
 		}
 
-		const canvasView = view as CanvasViewLike;
-		if (!canvasView.canvas) {
+		if (selectionResult.status === "missing-canvas") {
 			// eslint-disable-next-line obsidianmd/ui/sentence-case
 			this.selectedCanvasNodes = [];
 			new Notice("Could not access the Canvas object.");
 			return false;
 		}
 
-		const selection = Array.from(canvasView.canvas.selection ?? []);
+		const selection = selectionResult.selection;
 
 		if (selection.length === 0) {
 			// eslint-disable-next-line obsidianmd/ui/sentence-case
@@ -137,14 +130,11 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 
 	async buildCurrentContextPacket(): Promise<string> {
 		let canvasText: string | undefined;
-		const activeFile = this.app.workspace.getActiveFile();
 
-		if (activeFile?.extension === "canvas") {
-			try {
-				canvasText = await this.app.vault.cachedRead(activeFile);
-			} catch (error) {
-				console.debug("Failed to read active canvas file for related context:", error);
-			}
+		try {
+			canvasText = await readActiveCanvasFileText(this.app);
+		} catch (error) {
+			console.debug("Failed to read active canvas file for related context:", error);
 		}
 
 		const packet = buildSelectedNodesContextPacket(this.selectedCanvasNodes, canvasText);

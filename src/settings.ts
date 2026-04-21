@@ -1,5 +1,5 @@
 import {App, PluginSettingTab, Setting} from "obsidian";
-import CanvasNodeCollectorPlugin  from "./main";
+import type CanvasNodeCollectorPlugin  from "./main";
 
 export interface CanvasNodeCollectorSettings  {
     apiKey: string;

@@ -158,6 +158,14 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 			limits: packet.limits,
 		});
 		console.debug("relatedContext:", packet.related);
+		console.debug("relatedCompressedContexts:", packet.related?.items.map((item) => ({
+			id: item.node.id,
+			score: item.score,
+			connectionCount: item.connectionCount,
+			viaSelectedNodeIds: item.viaSelectedNodeIds,
+			text: item.node.text,
+			file: item.node.file,
+		})) ?? []);
 		console.debug("legacyTextPacket:", packet.legacyTextPacket);
 		return buildSelectedNodesTextPacket(this.selectedCanvasNodes, canvasText);
 	}

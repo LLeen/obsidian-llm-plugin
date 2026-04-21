@@ -31,6 +31,8 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 			id: "test-zhipu-api",
 			name: "Test Zhipu API",
 			callback: async () => {
+				const requestNotice = new Notice("Sending request...", 0);
+
 				try {
 					const result = await generateAnswer({
 						apiKey: this.settings.apiKey,
@@ -49,6 +51,8 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 					console.error("Zhipu API call failed:", message);
 					new Notice(`Zhipu API call failed: ${message}`);
 					console.debug("Current model:", this.settings.model);
+				} finally {
+					requestNotice.hide();
 				}
 			},
 		});
@@ -76,6 +80,7 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 				}
 
 				const packedText = await this.buildCurrentContextPacket();
+				const requestNotice = new Notice("Sending request...", 0);
 
 				try {
 					const result = await generateAnswer({
@@ -106,6 +111,8 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 					const message = error instanceof Error ? error.message : "Unknown error";
 					console.error("Zhipu API call failed:", message);
 					new Notice(`Zhipu API call failed: ${message}`);
+				} finally {
+					requestNotice.hide();
 				}
 			},
 		});

@@ -14,6 +14,8 @@ The plugin can detect selected Canvas nodes, extract basic node information such
 
 The plugin now validates LLM responses more defensively, uses Obsidian-compatible request handling, and can write the returned summary back into the active Canvas as a native text node. It can also create a group around the selected nodes and connect that group to the generated summary node.
 
+The current verified context workflow is text-first. Non-text node content recognition and extraction, including file, PDF, image, attachment, and multimodal content, has not been implemented yet. That work is planned after improving plain text context selection, clipping, range control, and related-node scoring.
+
 ## Features
 
 ## Project Structure
@@ -53,10 +55,11 @@ The plugin now validates LLM responses more defensively, uses Obsidian-compatibl
 - [x] Connect the selected-node group to the generated summary node
 
 ### In Progress
-- [ ] Improve context extraction and selection rules for selected Canvas nodes
-- [ ] Improve context clipping and text budget behavior for long node content
-- [ ] Refine direct-neighbor related node selection
-- [ ] Improve related node scoring and ranking rules
+- [ ] Improve context extraction and selection rules for selected plain text Canvas nodes
+- [ ] Improve context clipping and text budget behavior for long text node content
+- [ ] Make related context range configurable from the current 1-hop baseline
+- [ ] Improve related text node scoring and ranking rules
+- [ ] Select more relevant related text nodes for the `ContextPacket`
 - [ ] Tune generated Canvas node placement and sizing after manual UI testing
 
 ### Planned
@@ -64,6 +67,9 @@ The plugin now validates LLM responses more defensively, uses Obsidian-compatibl
 - [ ] Add configurable context size limits and clipping strategy
 - [ ] Add configurable related-node limits and scoring weights
 - [ ] Support richer related context selection beyond direct neighbors if needed
+- [ ] Adapt non-text Canvas node recognition and extraction after text context management is improved
+- [ ] Integrate extracted file, PDF, image, attachment, and multimodal content into the existing `ContextPacket` pipeline
+- [ ] Add manual tests or fixtures for non-text Canvas node extraction before claiming support
 - [ ] Improve generated group and edge layout after visual testing
 - [ ] Add optional result metadata such as model, timestamp, or source selection summary
 - [ ] Add focused tests or fixtures for Canvas packet and related-node ranking behavior
@@ -105,8 +111,10 @@ The plugin now validates LLM responses more defensively, uses Obsidian-compatibl
 - npm
 
 ## Next Steps
-- Refine selected-node context clipping and selection behavior
-- Improve related-node scoring and ranking rules
+- Refine selected plain text node context clipping and selection behavior
+- Make related context range configurable from the current 1-hop baseline
+- Improve related text node scoring and ranking rules
+- Defer non-text node extraction until the text context pipeline is more reliable
 - Manually verify generated summary, group, and edge rendering in Obsidian Canvas
 - Tune Canvas result placement and sizing based on real UI behavior
 
@@ -120,4 +128,5 @@ Each iteration focuses on one small, testable feature before moving to the next 
 - Some ESLint rules are temporarily adjusted to match the current development stage and implementation approach.
 - The project is being built step by step with small testable iterations.
 - New functionality should preserve a component-driven service structure, with responsibilities kept clearly separated across modules.
+- Plain text Canvas nodes are the current verified baseline; file, PDF, image, attachment, and multimodal node content extraction still requires future design, implementation, and manual validation.
 - Manual Obsidian Canvas testing is still required for UI refresh, group rendering, and edge rendering behavior.

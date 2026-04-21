@@ -10,16 +10,26 @@ It is currently an **early-stage Obsidian Canvas context plugin**.
 ## Current project state
 The repository already has early working pieces:
 - selected Canvas node detection
-- basic extraction of node fields such as text, id, position, and size
-- simple packet construction from selected node text
-- initial external LLM request flow
-- basic response parsing
+- extraction of node fields such as text, file, id, position, and size
+- structured `ContextPacket` construction from selected node data
+- direct-neighbor related Canvas context
+- simple rule-based related node scoring and sorting
+- external LLM request flow using Obsidian `requestUrl`
+- defensive LLM response validation and readable text extraction
+- minimal loading, success, and failure notices
+- guard against sending selected nodes with no text or file content
+- plain text Canvas nodes are the current verified context baseline
+- non-text node content recognition and extraction is not implemented yet
+- native Canvas write-back for LLM results:
+  - summary text node
+  - selected-node group
+  - group-to-summary edge
 
 Important: preserve this incremental state.
 Do not redesign the entire plugin unless explicitly asked.
 
 ## Main v1 goal
-The main v1 goal is to improve the plugin from a simple text concatenation flow into a more reliable and structured **context packet pipeline**.
+The main v1 goal is to keep improving the plugin as a reliable and structured **context packet pipeline** with lightweight native Canvas result output.
 
 V1 should focus on:
 1. collecting selected nodes safely
@@ -27,7 +37,12 @@ V1 should focus on:
 3. ranking or filtering context in a simple rule-based way
 4. building a structured packet for the LLM
 5. validating and handling API responses safely
-6. showing useful user feedback in Obsidian
+6. writing useful LLM results back into the active Canvas with native Canvas elements
+7. showing useful user feedback in Obsidian
+
+The UI direction for v1 should remain native Canvas elements, not a custom view or a complex UI framework.
+
+The current next priority is improving plain text Canvas node context management before adapting non-text node content. Future non-text work should recognize and extract file, PDF, image, attachment, and multimodal content only after the text context pipeline is more reliable.
 
 ## What v1 is allowed to build
 Allowed work:
@@ -38,8 +53,19 @@ Allowed work:
 - add settings for API configuration
 - improve error handling and notices
 - add minimal UI for displaying results
+- add native Canvas result write-back
+- add a generated summary text node
+- add a selected-node group
+- add a group-to-summary edge
+- improve lightweight result node layout and sizing
 - add simple context size limits
 - add direct-neighbor Canvas context if it can be implemented safely
+- add settings-controlled related context range or hop depth
+- improve rule-based scoring for related text nodes
+- add small, explicit non-text Canvas node adapters later, only when safely scoped
+- integrate extracted non-text content into the existing `ContextPacket` pipeline later, after text context behavior is improved
+
+Canvas UI work should remain lightweight, manually verifiable, and implemented through focused service modules.
 
 ## What v1 must not build unless explicitly requested
 Do not add these by default:
@@ -57,7 +83,7 @@ Do not add these by default:
 ## How to think about this project
 Treat this project as a **small Obsidian plugin with one narrow workflow**:
 
-selected Canvas nodes -> context extraction -> packet building -> LLM request -> response handling -> user-visible result
+selected Canvas nodes -> context extraction -> ContextPacket -> LLM request -> validated response -> native Canvas summary/group/edge write-back -> user feedback
 
 When proposing changes, prefer the smallest useful improvement that keeps this workflow stable.
 
@@ -65,7 +91,12 @@ When proposing changes, prefer the smallest useful improvement that keeps this w
 Use the existing structure as the starting point.
 Current important files mentioned by the repository documentation:
 - `src/main.ts`
+- `src/canvasTypes.ts`
+- `src/contextTypes.ts`
 - `src/services/contextService.ts`
+- `src/services/relatedContextService.ts`
+- `src/services/canvasService.ts`
+- `src/services/canvasResultService.ts`
 - `src/services/llm/client.ts`
 - `eslint.config.mts`
 
@@ -77,12 +108,16 @@ If structure changes are suggested, explain why first.
 - Prefer modifying existing files over introducing many new abstractions.
 - Avoid speculative abstractions.
 - Preserve Obsidian plugin lifecycle clarity.
-- Keep `main.ts` focused on lifecycle and command registration.
+- Preserve the component-driven service structure.
+- Keep `main.ts` focused on lifecycle, command registration, and orchestration.
 - Keep business logic in service modules.
+- Keep Canvas file write-back logic in Canvas-focused services.
+- Preserve existing Canvas JSON fields when writing results.
 - Use TypeScript types instead of `any` whenever possible.
 - Handle malformed API responses defensively.
 - Respect Obsidian plugin constraints and lint rules.
-- Prefer Obsidian-compatible request patterns over browser `fetch` where required.
+- Use Obsidian `requestUrl` for external API calls.
+- Do not introduce custom views unless explicitly requested.
 
 ## Before coding
 Before making changes, first understand:
@@ -91,6 +126,7 @@ Before making changes, first understand:
 3. what the smallest next implementation step is
 
 If the task is ambiguous, prefer a minimal implementation that matches the current iteration plan.
+For the current iteration plan, prioritize plain text context selection, clipping, related-node range control, and related-node scoring before non-text node extraction.
 
 ## After coding
 After making changes, always report:
@@ -102,6 +138,21 @@ After making changes, always report:
 ## Manual testing mindset
 Assume this project is tested primarily through manual plugin loading in Obsidian.
 Prioritize changes that are easy to verify through commands, notices, and visible plugin behavior.
+Important manual checks include:
+- selected empty nodes should not send an API request
+- successful LLM responses should create a summary text node
+- selected nodes should get grouped when usable bounds exist
+- the selected-node group should connect to the summary node with an edge
+- Canvas refresh and rendering behavior must be visually checked
+- invalid or malformed API responses should show clear failure notices
+- plain text nodes are the currently verified baseline
+- do not claim file, PDF, image, attachment, or multimodal node support before explicit implementation and manual validation
+- verify text-only related context behavior before expanding to non-text nodes
+
+## Existing known warnings
+Lint currently passes with warnings only.
+Known warning categories:
+- unused `eslint-disable` comments in `src/main.ts` and `src/settings.ts`
 
 ## Output style for coding agents
 When responding about code changes:

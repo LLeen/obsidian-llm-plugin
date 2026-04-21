@@ -1,30 +1,104 @@
-import {LlmRequestOptions, LlmResponse} from "./types";
-import { requestUrl } from "obsidian";
+import {requestUrl} from "obsidian";
+import type {LlmRequestOptions, LlmResponse} from "./types";
 
-type ZhipuMessageContentPart = {
-text?: string;
+type ZhipuMessage = {
+	content?: unknown;
+	reasoning_content?: unknown;
 };
 
 type ZhipuChatCompletionResponse = {
-id?: string;
-choices?: Array<{
-index?: number;
-message?: {
-role?: string;
-content?: string | ZhipuMessageContentPart[];
-reasoning_content?: string;
-};
-finish_reason?: string;
-}>;
-usage?: {
-prompt_tokens?: number;
-completion_tokens?: number;
-total_tokens?: number;
-};
+	choices?: unknown;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+function parseLlmResponseBody(responseText: string): ZhipuChatCompletionResponse {
+	if (responseText.trim().length === 0) {
+		throw new Error("LLM returned an empty response body");
+	}
+
+	try {
+		const parsed = JSON.parse(responseText) as unknown;
+
+		if (!isRecord(parsed)) {
+			throw new Error("LLM returned an unexpected JSON response");
+		}
+
+		return parsed;
+	} catch (error) {
+		if (error instanceof SyntaxError) {
+			throw new Error("LLM returned malformed JSON response");
+		}
+
+		throw error;
+	}
+}
+
+function extractTextFromContentPart(part: unknown): string {
+	if (!isRecord(part)) {
+		return "";
+	}
+
+	return typeof part.text === "string" ? part.text : "";
+}
+
+function extractTextFromContent(content: unknown): string {
+	if (typeof content === "string") {
+		return content;
+	}
+
+	if (Array.isArray(content)) {
+		return content.map(extractTextFromContentPart).join("");
+	}
+
+	return "";
+}
+
+function readChoiceMessage(choice: unknown): ZhipuMessage | null {
+	if (!isRecord(choice) || !isRecord(choice.message)) {
+		return null;
+	}
+
+	return choice.message;
+}
+
+function extractTextFromMessage(message: ZhipuMessage): string {
+	const contentText = extractTextFromContent(message.content);
+
+	if (contentText.trim().length > 0) {
+		return contentText;
+	}
+
+	return typeof message.reasoning_content === "string" ? message.reasoning_content : "";
+}
+
+function extractReadableText(data: ZhipuChatCompletionResponse): string {
+	if (!Array.isArray(data.choices)) {
+		return "";
+	}
+
+	for (const choice of data.choices) {
+		const message = readChoiceMessage(choice);
+
+		if (!message) {
+			continue;
+		}
+
+		const text = extractTextFromMessage(message);
+
+		if (text.trim().length > 0) {
+			return text;
+		}
+	}
+
+	return "";
+}
+
 export async function callLlmApi(options: LlmRequestOptions): Promise<LlmResponse> {
-	const response = await fetch(options.baseUrl, {
+	const response = await requestUrl({
+		url: options.baseUrl,
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
@@ -39,33 +113,19 @@ export async function callLlmApi(options: LlmRequestOptions): Promise<LlmRespons
 		}),
 	});
 
-	if (!response.ok) {
-		const errorText = await response.text();
-		throw new Error(`LLM API request failed: ${response.status} ${errorText}`);
+	const responseText = response.text;
+
+	if (response.status < 200 || response.status >= 300) {
+		throw new Error(`LLM API request failed: ${response.status} ${responseText}`);
 	}
-const data = (await response.json()) as ZhipuChatCompletionResponse;
-const message = data.choices?.[0]?.message;
-const content = message?.content;
-const reasoning = message?.reasoning_content;
-	let text = "";
 
-if (typeof content === "string" && content.trim() !== "") {
-	text = content;
-} else if (Array.isArray(content)) {
-	text = content
-		.map((part: ZhipuMessageContentPart): string => {
-			if (typeof part.text === "string") return part.text;
-			return "";
-		})
-		.join("");
-} else if (typeof reasoning === "string" && reasoning.trim() !== "") {
-	text = reasoning;
-}
+	const data = parseLlmResponseBody(responseText);
+	const text = extractReadableText(data);
 
-if (text.trim() === "") {
-	console.debug("Raw LLM response:", data);
-	throw new Error("LLM returned no readable text content");
-}
+	if (text.trim() === "") {
+		console.debug("Raw LLM response:", data);
+		throw new Error("LLM returned no readable text content");
+	}
 
 	return {
 		text,

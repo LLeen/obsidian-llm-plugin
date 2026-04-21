@@ -65,6 +65,15 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 					return;
 				}
 
+				const hasReadableContent = this.selectedCanvasNodes.some((node) =>
+					(node.text?.trim().length ?? 0) > 0 || (node.file?.trim().length ?? 0) > 0,
+				);
+
+				if (!hasReadableContent) {
+					new Notice("Selected Canvas nodes have no text or file content.");
+					return;
+				}
+
 				const packedText = await this.buildCurrentContextPacket();
 
 				try {

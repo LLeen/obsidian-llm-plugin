@@ -7,6 +7,7 @@ import type {
 	ContextPacketNode,
 } from "../contextTypes";
 import {parseCanvasData} from "./canvasFileParser";
+import {buildContextPacketNode} from "./contextNodeBuilder";
 import {compressTextForContext} from "./contextText";
 import {buildRelatedContextSection} from "./relatedContextService";
 
@@ -67,27 +68,6 @@ function buildLegacyTextPacket(nodes: ContextPacketNode[]): string {
 		.join("\n\n---\n\n");
 }
 
-function buildStructuredNodeContext(
-	node: SelectedCanvasNodeInfo,
-	index: number,
-): ContextPacketNode {
-	return {
-		index: index + 1,
-		id: node.id,
-		type: node.type,
-		position: {
-			x: node.x,
-			y: node.y,
-		},
-		size: {
-			width: node.width,
-			height: node.height,
-		},
-		text: typeof node.text === "string" ? compressTextForContext(node.text, Number.MAX_SAFE_INTEGER) : undefined,
-		file: typeof node.file === "string" && node.file.trim().length > 0 ? node.file.trim() : undefined,
-	};
-}
-
 function applyTextBudget(nodes: ContextPacketNode[]): PacketTextBudgetResult {
 	let remainingTextChars = MAX_TOTAL_TEXT_CHARS;
 	let truncated = false;
@@ -131,13 +111,15 @@ export function buildSelectedNodesContextPacket(
 	nodes: SelectedCanvasNodeInfo[],
 	canvasText?: string,
 ): ContextPacket {
-	const structuredNodes = nodes.map(buildStructuredNodeContext);
+	const structuredNodes = nodes.map((node, index) => buildContextPacketNode(node, index));
 	const budgetedResult = applyTextBudget(structuredNodes);
 	const related = buildRelatedContextSection(
 		nodes,
 		parseCanvasData(canvasText),
-		MAX_RELATED_ITEMS,
-		MAX_RELATED_NODE_TEXT_CHARS,
+		{
+			maxRelatedItems: MAX_RELATED_ITEMS,
+			maxRelatedNodeTextChars: MAX_RELATED_NODE_TEXT_CHARS,
+		},
 	);
 	const legacyTextPacket = buildLegacyTextPacket(budgetedResult.nodes);
 

@@ -1,4 +1,3 @@
-- Keep the plugin small. Avoid large dependencies. Prefer browser-compatible packages.
 # AGENTS.md
 
 ## Purpose of this repository

@@ -14,6 +14,7 @@ const MAX_NODE_TEXT_CHARS = 1000;
 const MAX_TOTAL_TEXT_CHARS = 4000;
 const MAX_RELATED_ITEMS = 5;
 const MAX_RELATED_NODE_TEXT_CHARS = 400;
+const EXCERPT_SEPARATOR = "\n...\n";
 
 type PacketTextBudgetResult = {
 	nodes: ContextPacketNode[];
@@ -128,6 +129,46 @@ function buildLegacyTextPacket(nodes: ContextPacketNode[]): string {
 		.join("\n\n---\n\n");
 }
 
+function normalizeTextForContext(text: string): string {
+	return text
+		.replace(/\r\n?/g, "\n")
+		.split("\n")
+		.map((line) => line.replace(/[ \t]+/g, " ").trim())
+		.join("\n")
+		.replace(/\n{3,}/g, "\n\n")
+		.trim();
+}
+
+function compressTextForContext(text: string, maxChars: number): string | undefined {
+	if (maxChars <= 0) {
+		return undefined;
+	}
+
+	const normalized = normalizeTextForContext(text);
+
+	if (normalized.length === 0) {
+		return undefined;
+	}
+
+	if (normalized.length <= maxChars) {
+		return normalized;
+	}
+
+	if (maxChars <= EXCERPT_SEPARATOR.length + 8) {
+		return normalized.slice(0, maxChars).trim();
+	}
+
+	const remainingChars = maxChars - EXCERPT_SEPARATOR.length;
+	const headChars = Math.max(1, Math.ceil(remainingChars * 0.7));
+	const tailChars = Math.max(1, remainingChars - headChars);
+
+	return [
+		normalized.slice(0, headChars).trim(),
+		EXCERPT_SEPARATOR.trim(),
+		normalized.slice(normalized.length - tailChars).trim(),
+	].join("\n");
+}
+
 function buildStructuredNodeContext(
 	node: SelectedCanvasNodeInfo,
 	index: number,
@@ -144,7 +185,7 @@ function buildStructuredNodeContext(
 			width: node.width,
 			height: node.height,
 		},
-		text: typeof node.text === "string" && node.text.trim().length > 0 ? node.text.trim() : undefined,
+		text: typeof node.text === "string" ? compressTextForContext(node.text, Number.MAX_SAFE_INTEGER) : undefined,
 		file: typeof node.file === "string" && node.file.trim().length > 0 ? node.file.trim() : undefined,
 	};
 }
@@ -174,7 +215,7 @@ function buildLimitedContextNode(
 	if (typeof contextNode.text === "string") {
 		return {
 			...contextNode,
-			text: contextNode.text.slice(0, maxTextChars),
+			text: compressTextForContext(contextNode.text, maxTextChars),
 		};
 	}
 
@@ -314,22 +355,24 @@ function applyTextBudget(nodes: ContextPacketNode[]): PacketTextBudgetResult {
 		}
 
 		const normalizedText = node.text.trim();
-		const perNodeText = normalizedText.slice(0, MAX_NODE_TEXT_CHARS);
-		const allowedText = perNodeText.slice(0, remainingTextChars);
+		const perNodeText = compressTextForContext(normalizedText, MAX_NODE_TEXT_CHARS);
+		const allowedText = typeof perNodeText === "string"
+			? compressTextForContext(perNodeText, remainingTextChars)
+			: undefined;
 
-		if (allowedText.length < normalizedText.length) {
+		if (typeof allowedText === "string" && allowedText.length < normalizedText.length) {
 			truncated = true;
 		}
 
-		if (normalizedText.length > 0 && allowedText.length === 0) {
+		if (normalizedText.length > 0 && typeof allowedText !== "string") {
 			omittedNodeCount += 1;
 		}
 
-		remainingTextChars -= allowedText.length;
+		remainingTextChars -= allowedText?.length ?? 0;
 
 		return {
 			...node,
-			text: allowedText.length > 0 ? allowedText : undefined,
+			text: allowedText,
 		};
 	});
 

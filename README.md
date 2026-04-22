@@ -130,3 +130,4 @@ Each iteration focuses on one small, testable feature before moving to the next 
 - New functionality should preserve a component-driven service structure, with responsibilities kept clearly separated across modules.
 - Plain text Canvas nodes are the current verified baseline; file, PDF, image, attachment, and multimodal node content extraction still requires future design, implementation, and manual validation.
 - Manual Obsidian Canvas testing is still required for UI refresh, group rendering, and edge rendering behavior.
+- This project was developed iteratively with AI-assisted coding support for debugging, refactoring, and development acceleration, while the project scope, feature decisions, and integration logic were defined and reviewed manually.

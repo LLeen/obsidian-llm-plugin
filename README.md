@@ -84,3 +84,4 @@ Each iteration focuses on one small, testable feature before moving to the next 
 - Obsidian-specific lint rules and request patterns are being reviewed during development.
 - Some ESLint rules are temporarily adjusted to match the current development stage and implementation approach.
 - The project is being built step by step with small testable iterations.
+- This project was developed iteratively with AI-assisted coding support for debugging, refactoring, and development acceleration, while the project scope, feature decisions, and integration logic were defined and reviewed manually.

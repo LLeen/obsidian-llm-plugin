@@ -1,3 +1,5 @@
+import type {CanvasFileContentStatus, CanvasFileKind, CanvasNodeTextSource} from "./canvasTypes";
+
 export type ContextPacketNode = {
 index: number;
 id: string;
@@ -12,6 +14,10 @@ height?: number;
 };
 text?: string;
 file?: string;
+fileKind?: CanvasFileKind;
+fileExtension?: string;
+textSource?: CanvasNodeTextSource;
+fileContentStatus?: CanvasFileContentStatus;
 };
 
 export type ContextPacketSection = {

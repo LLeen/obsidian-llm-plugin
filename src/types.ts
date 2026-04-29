@@ -1,7 +1,10 @@
 export type {
+	CanvasFileContentStatus,
 	CanvasFileData,
 	CanvasFileEdgeData,
+	CanvasFileKind,
 	CanvasFileNodeData,
+	CanvasNodeTextSource,
 	CanvasNodeLike,
 	SelectedCanvasNodeInfo,
 } from "./canvasTypes";

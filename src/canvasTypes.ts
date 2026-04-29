@@ -1,3 +1,9 @@
+export type CanvasFileKind = "markdown" | "image" | "pdf" | "unsupported" | "unknown";
+
+export type CanvasNodeTextSource = "canvas-text" | "markdown-file";
+
+export type CanvasFileContentStatus = "read" | "missing" | "unsupported" | "error" | "not-file";
+
 export type SelectedCanvasNodeInfo = {
 id: string;
 type: "text" | "file" | "unknown";
@@ -7,6 +13,10 @@ width?: number;
 height?: number;
 text?: string;
 file?: string;
+fileKind?: CanvasFileKind;
+fileExtension?: string;
+textSource?: CanvasNodeTextSource;
+fileContentStatus?: CanvasFileContentStatus;
 };
 
 export type CanvasFileNodeData = {

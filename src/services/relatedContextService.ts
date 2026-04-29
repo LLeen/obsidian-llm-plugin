@@ -8,6 +8,7 @@ import type {
 	RelatedContextItem,
 	RelatedContextSection,
 } from "../contextTypes";
+import {classifyCanvasFileReference} from "./canvasFileReferenceService";
 import {buildContextPacketNode} from "./contextNodeBuilder";
 
 export type RelatedContextOptions = {
@@ -24,6 +25,8 @@ type RelatedNodeCandidate = {
 
 function normalizeCanvasDataNode(node: CanvasFileNodeData): SelectedCanvasNodeInfo {
 	const normalizedType = node.type === "text" || node.type === "file" ? node.type : "unknown";
+	const file = node.type === "file" ? node.file : undefined;
+	const fileClassification = classifyCanvasFileReference(file);
 
 	return {
 		id: node.id,
@@ -33,7 +36,10 @@ function normalizeCanvasDataNode(node: CanvasFileNodeData): SelectedCanvasNodeIn
 		width: node.width,
 		height: node.height,
 		text: node.type === "text" ? node.text : undefined,
-		file: node.type === "file" ? node.file : undefined,
+		file,
+		fileKind: normalizedType === "file" ? fileClassification.fileKind : undefined,
+		fileExtension: normalizedType === "file" ? fileClassification.fileExtension : undefined,
+		textSource: node.type === "text" && typeof node.text === "string" ? "canvas-text" : undefined,
 	};
 }
 

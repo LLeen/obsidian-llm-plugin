@@ -7,6 +7,7 @@ import type {
 	ContextPacketNode,
 } from "../contextTypes";
 import {parseCanvasData} from "./canvasFileParser";
+import {classifyCanvasFileReference} from "./canvasFileReferenceService";
 import {buildContextPacketNode} from "./contextNodeBuilder";
 import {compressTextForContext} from "./contextText";
 import {buildRelatedContextSection} from "./relatedContextService";
@@ -22,6 +23,22 @@ type PacketTextBudgetResult = {
 	omittedNodeCount: number;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+function readStringOrPath(value: unknown): string | undefined {
+	if (typeof value === "string") {
+		return value;
+	}
+
+	if (isRecord(value) && typeof value.path === "string") {
+		return value.path;
+	}
+
+	return undefined;
+}
+
 //type checking
 function inferCanvasNodeType(node: CanvasNodeLike): "text" | "file" | "unknown" {
 	if (typeof node.type === "string") {
@@ -33,7 +50,7 @@ function inferCanvasNodeType(node: CanvasNodeLike): "text" | "file" | "unknown" 
 	}
 
 	if (typeof node.text === "string") return "text";
-	if (typeof node.file === "string") return "file";
+	if (readStringOrPath(node.file) || readStringOrPath(node.data?.file)) return "file";
 
 	return "unknown";
 }
@@ -45,16 +62,22 @@ export function collectSelectedCanvasNodes(
 	return selection.map((node: CanvasNodeLike) => {
 		const textValue = node.text ?? node.data?.text;
 		const fileValue = node.file ?? node.data?.file;
+		const file = readStringOrPath(fileValue);
+		const fileClassification = classifyCanvasFileReference(file);
+		const type = inferCanvasNodeType(node);
 
 		return {
 			id: node.id ?? node.data?.id ?? "",
-			type: inferCanvasNodeType(node),
+			type,
 			x: node.x ?? node.data?.x,
 			y: node.y ?? node.data?.y,
 			width: node.width ?? node.data?.width,
 			height: node.height ?? node.data?.height,
 			text: typeof textValue === "string" ? textValue : undefined,
-			file: typeof fileValue === "string" ? fileValue : undefined,
+			file,
+			fileKind: type === "file" ? fileClassification.fileKind : undefined,
+			fileExtension: type === "file" ? fileClassification.fileExtension : undefined,
+			textSource: typeof textValue === "string" ? "canvas-text" : undefined,
 		};
 	});
 }

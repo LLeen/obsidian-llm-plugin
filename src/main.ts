@@ -1,17 +1,22 @@
 import {Notice, Plugin} from "obsidian";
 import {DEFAULT_SETTINGS, CanvasNodeCollectorSettings, CanvasNodeCollectorSettingTab} from "./settings";
 import type {SelectedCanvasNodeInfo} from "./canvasTypes";
-import {getActiveCanvasSelection, readActiveCanvasFileText} from "./services/canvasService";
+import {getActiveCanvasSelection, readCanvasFileTextByPath} from "./services/canvasService";
 import {appendLlmSummaryNodeToActiveCanvas} from "./services/canvasResultService";
 import {
 	buildSelectedNodesContextPacket,
 	buildSelectedNodesTextPacket,
 	collectSelectedCanvasNodes,
 } from "./services/contextService";
+import {
+	MarkdownFileContentSummary,
+	readSelectedMarkdownFileContents,
+} from "./services/canvasFileReferenceService";
 import {generateAnswer} from "./services/llm/service";
 
 export default class CanvasNodeCollectorPlugin extends Plugin {
 	selectedCanvasNodes: SelectedCanvasNodeInfo[] = [];
+	selectedCanvasFilePath?: string;
 	settings: CanvasNodeCollectorSettings;
 
 	async onload() {
@@ -70,12 +75,14 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 					return;
 				}
 
+				await this.loadSelectedMarkdownFileContents();
+
 				const hasReadableContent = this.selectedCanvasNodes.some((node) =>
-					(node.text?.trim().length ?? 0) > 0 || (node.file?.trim().length ?? 0) > 0,
+					(node.text?.trim().length ?? 0) > 0,
 				);
 
 				if (!hasReadableContent) {
-					new Notice("Selected Canvas nodes have no text or file content.");
+					new Notice("Selected Canvas nodes have no readable text or Markdown file content.");
 					return;
 				}
 
@@ -100,6 +107,7 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 						await appendLlmSummaryNodeToActiveCanvas(this.app, {
 							selectedNodes: this.selectedCanvasNodes,
 							resultText: result.text,
+							canvasFilePath: this.selectedCanvasFilePath ?? "",
 						});
 						new Notice("Sent successfully. Added summary node to Canvas.");
 					} catch (error) {
@@ -116,6 +124,28 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 				}
 			},
 		});
+
+		this.addCommand({
+			id: "check-selected-canvas-file-content",
+			name: "Check selected Canvas file content",
+			callback: async () => {
+				if (!this.saveSelectedCanvasNodes()) {
+					return;
+				}
+
+				const summary = await this.loadSelectedMarkdownFileContents();
+				const missingOrErrorCount = summary.missingCount + summary.errorCount;
+
+				console.debug("Selected Canvas file content check:", {
+					summary,
+					nodes: this.selectedCanvasNodes,
+				});
+
+				new Notice(
+					`Markdown read: ${summary.readCount}; unsupported files: ${summary.unsupportedCount}; missing/error: ${missingOrErrorCount}.`,
+				);
+			},
+		});
 	}
 
 	saveSelectedCanvasNodes(): boolean {
@@ -124,6 +154,7 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 		if (selectionResult.status === "not-canvas") {
 			// eslint-disable-next-line obsidianmd/ui/sentence-case
 			this.selectedCanvasNodes = [];
+			this.selectedCanvasFilePath = undefined;
 			new Notice("The active view is not a Canvas.");
 			return false;
 		}
@@ -131,6 +162,7 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 		if (selectionResult.status === "missing-canvas") {
 			// eslint-disable-next-line obsidianmd/ui/sentence-case
 			this.selectedCanvasNodes = [];
+			this.selectedCanvasFilePath = undefined;
 			new Notice("Could not access the Canvas object.");
 			return false;
 		}
@@ -141,28 +173,43 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 			// eslint-disable-next-line obsidianmd/ui/sentence-case
 			new Notice("No Canvas nodes are currently selected.");
 			this.selectedCanvasNodes = [];
+			this.selectedCanvasFilePath = selectionResult.canvasFilePath;
 			return false;
 		}
 
 		this.selectedCanvasNodes = collectSelectedCanvasNodes(selection);
+		this.selectedCanvasFilePath = selectionResult.canvasFilePath;
 
 		// eslint-disable-next-line obsidianmd/ui/sentence-case
 		console.debug("Raw selected Canvas nodes:", selection);
 		// eslint-disable-next-line obsidianmd/ui/sentence-case
 		console.debug("Extracted Canvas node info:", this.selectedCanvasNodes);
+		console.debug("Selected Canvas file path:", this.selectedCanvasFilePath);
 		// eslint-disable-next-line obsidianmd/ui/sentence-case
 		new Notice(`Saved ${this.selectedCanvasNodes.length} selected node(s).`);
 
 		return true;
 	}
 
+	async loadSelectedMarkdownFileContents(): Promise<MarkdownFileContentSummary> {
+		const result = await readSelectedMarkdownFileContents(this.app, this.selectedCanvasNodes);
+
+		this.selectedCanvasNodes = result.nodes;
+		console.debug("Canvas file reference content results:", {
+			summary: result.summary,
+			nodes: this.selectedCanvasNodes,
+		});
+
+		return result.summary;
+	}
+
 	async buildCurrentContextPacket(): Promise<string> {
 		let canvasText: string | undefined;
 
 		try {
-			canvasText = await readActiveCanvasFileText(this.app);
+			canvasText = await readCanvasFileTextByPath(this.app, this.selectedCanvasFilePath);
 		} catch (error) {
-			console.debug("Failed to read active canvas file for related context:", error);
+			console.debug("Failed to read selected canvas file for related context:", error);
 		}
 
 		const packet = buildSelectedNodesContextPacket(this.selectedCanvasNodes, canvasText);
@@ -171,6 +218,14 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 			textNodeCount: packet.primary.textNodeCount,
 			fileNodeCount: packet.primary.fileNodeCount,
 			nodes: packet.primary.nodes,
+			fileReferences: packet.primary.nodes.map((node) => ({
+				id: node.id,
+				file: node.file,
+				fileKind: node.fileKind,
+				fileExtension: node.fileExtension,
+				textSource: node.textSource,
+				fileContentStatus: node.fileContentStatus,
+			})),
 			truncated: packet.primary.truncated,
 			omittedNodeCount: packet.primary.omittedNodeCount,
 			limits: packet.limits,
@@ -183,6 +238,8 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 			viaSelectedNodeIds: item.viaSelectedNodeIds,
 			text: item.node.text,
 			file: item.node.file,
+			fileKind: item.node.fileKind,
+			fileExtension: item.node.fileExtension,
 		})) ?? []);
 		console.debug("legacyTextPacket:", packet.legacyTextPacket);
 		return buildSelectedNodesTextPacket(this.selectedCanvasNodes, canvasText);

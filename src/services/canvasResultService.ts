@@ -18,6 +18,7 @@ const SUMMARY_NODE_MAX_LINE_CHARS = 84;
 type AppendLlmSummaryNodeOptions = {
 	selectedNodes: SelectedCanvasNodeInfo[];
 	resultText: string;
+	canvasFilePath: string;
 };
 
 type CanvasWriteData = Record<string, unknown> & {
@@ -53,7 +54,7 @@ function parseCanvasWriteData(canvasText: string): CanvasWriteData {
 	const parsed = JSON.parse(canvasText) as unknown;
 
 	if (!isRecord(parsed) || !Array.isArray(parsed.nodes) || (parsed.edges !== undefined && !Array.isArray(parsed.edges))) {
-		throw new Error("Active Canvas file is malformed.");
+		throw new Error("Target Canvas file is malformed.");
 	}
 
 	return parsed as CanvasWriteData;
@@ -120,6 +121,10 @@ function buildSelectedGroupNode(
 	canvasData: CanvasWriteData,
 	selectedNodes: SelectedCanvasNodeInfo[],
 ): CanvasNodeWriteData | null {
+	if (selectedNodes.length <= 1) {
+		return null;
+	}
+
 	const bounds = getSelectedNodeBounds(selectedNodes);
 
 	if (!bounds) {
@@ -181,31 +186,50 @@ function buildSummaryTextNode(
 	};
 }
 
-function buildGroupToSummaryEdge(
+function buildSourceToSummaryEdge(
 	canvasData: CanvasWriteData,
-	groupNode: CanvasNodeWriteData,
+	sourceNodeId: string,
 	summaryNode: CanvasNodeWriteData,
 ): Record<string, unknown> {
 	return {
 		id: buildUniqueCanvasElementId([...(canvasData.edges ?? []), ...canvasData.nodes], "llm-summary-edge"),
-		fromNode: groupNode.id,
+		fromNode: sourceNodeId,
 		fromSide: "right",
 		toNode: summaryNode.id,
 		toSide: "left",
 	};
 }
 
+function buildSingleSelectedNodeToSummaryEdge(
+	canvasData: CanvasWriteData,
+	selectedNodes: SelectedCanvasNodeInfo[],
+	summaryNode: CanvasNodeWriteData,
+): Record<string, unknown> | null {
+	if (selectedNodes.length !== 1) {
+		return null;
+	}
+
+	const selectedNodeId = selectedNodes[0]?.id.trim();
+
+	if (!selectedNodeId) {
+		console.debug("Skipped single selected node summary edge because selected node id is missing.");
+		return null;
+	}
+
+	return buildSourceToSummaryEdge(canvasData, selectedNodeId, summaryNode);
+}
+
 export async function appendLlmSummaryNodeToActiveCanvas(
 	app: App,
 	options: AppendLlmSummaryNodeOptions,
 ): Promise<void> {
-	const activeFile = app.workspace.getActiveFile();
+	const canvasFile = app.vault.getFileByPath(options.canvasFilePath);
 
-	if (activeFile?.extension !== "canvas") {
-		throw new Error("The active file is not a Canvas.");
+	if (canvasFile?.extension !== "canvas") {
+		throw new Error("The selected Canvas file is not available.");
 	}
 
-	const canvasText = await app.vault.read(activeFile);
+	const canvasText = await app.vault.read(canvasFile);
 	const canvasData = parseCanvasWriteData(canvasText);
 	const groupNode = buildSelectedGroupNode(canvasData, options.selectedNodes);
 	const summaryNode = buildSummaryTextNode(canvasData, options);
@@ -213,10 +237,17 @@ export async function appendLlmSummaryNodeToActiveCanvas(
 	if (groupNode) {
 		canvasData.nodes.push(groupNode);
 		canvasData.edges = canvasData.edges ?? [];
-		canvasData.edges.push(buildGroupToSummaryEdge(canvasData, groupNode, summaryNode));
+		canvasData.edges.push(buildSourceToSummaryEdge(canvasData, groupNode.id, summaryNode));
+	} else {
+		const directEdge = buildSingleSelectedNodeToSummaryEdge(canvasData, options.selectedNodes, summaryNode);
+
+		if (directEdge) {
+			canvasData.edges = canvasData.edges ?? [];
+			canvasData.edges.push(directEdge);
+		}
 	}
 
 	canvasData.nodes.push(summaryNode);
 
-	await app.vault.modify(activeFile, JSON.stringify(canvasData, null, 2));
+	await app.vault.modify(canvasFile, JSON.stringify(canvasData, null, 2));
 }

@@ -32,5 +32,9 @@ export function buildContextPacketNode(
 		},
 		text,
 		file: typeof node.file === "string" && node.file.trim().length > 0 ? node.file.trim() : undefined,
+		fileKind: node.fileKind,
+		fileExtension: node.fileExtension,
+		textSource: node.textSource,
+		fileContentStatus: node.fileContentStatus,
 	};
 }

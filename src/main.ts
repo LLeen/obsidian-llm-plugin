@@ -9,8 +9,8 @@ import {
 	collectSelectedCanvasNodes,
 } from "./services/contextService";
 import {
-	MarkdownFileContentSummary,
-	readSelectedMarkdownFileContents,
+	CanvasFileContentSummary,
+	readSelectedCanvasFileContents,
 } from "./services/canvasFileReferenceService";
 import {generateAnswer} from "./services/llm/service";
 
@@ -75,14 +75,18 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 					return;
 				}
 
-				await this.loadSelectedMarkdownFileContents();
+				const fileContentSummary = await this.loadSelectedCanvasFileContents();
 
 				const hasReadableContent = this.selectedCanvasNodes.some((node) =>
 					(node.text?.trim().length ?? 0) > 0,
 				);
 
 				if (!hasReadableContent) {
-					new Notice("Selected Canvas nodes have no readable text or Markdown file content.");
+					const missingOrErrorCount = fileContentSummary.missingCount + fileContentSummary.errorCount;
+
+					new Notice(
+						`Selected Canvas nodes have no readable text, Markdown, or PDF content. Unsupported: ${fileContentSummary.unsupportedCount}; not file nodes: ${fileContentSummary.notFileCount}; missing/error: ${missingOrErrorCount}.`,
+					);
 					return;
 				}
 
@@ -133,7 +137,7 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 					return;
 				}
 
-				const summary = await this.loadSelectedMarkdownFileContents();
+				const summary = await this.loadSelectedCanvasFileContents();
 				const missingOrErrorCount = summary.missingCount + summary.errorCount;
 
 				console.debug("Selected Canvas file content check:", {
@@ -142,7 +146,7 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 				});
 
 				new Notice(
-					`Markdown read: ${summary.readCount}; unsupported files: ${summary.unsupportedCount}; missing/error: ${missingOrErrorCount}.`,
+					`File content read: ${summary.readCount}; unsupported files: ${summary.unsupportedCount}; not file nodes: ${summary.notFileCount}; missing/error: ${missingOrErrorCount}.`,
 				);
 			},
 		});
@@ -191,8 +195,8 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 		return true;
 	}
 
-	async loadSelectedMarkdownFileContents(): Promise<MarkdownFileContentSummary> {
-		const result = await readSelectedMarkdownFileContents(this.app, this.selectedCanvasNodes);
+	async loadSelectedCanvasFileContents(): Promise<CanvasFileContentSummary> {
+		const result = await readSelectedCanvasFileContents(this.app, this.selectedCanvasNodes);
 
 		this.selectedCanvasNodes = result.nodes;
 		console.debug("Canvas file reference content results:", {

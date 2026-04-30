@@ -1,6 +1,6 @@
 export type CanvasFileKind = "markdown" | "image" | "pdf" | "unsupported" | "unknown";
 
-export type CanvasNodeTextSource = "canvas-text" | "markdown-file";
+export type CanvasNodeTextSource = "canvas-text" | "markdown-file" | "pdf-file";
 
 export type CanvasFileContentStatus = "read" | "missing" | "unsupported" | "error" | "not-file";
 

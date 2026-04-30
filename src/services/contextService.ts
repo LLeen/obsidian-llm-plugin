@@ -13,6 +13,7 @@ import {parseCanvasData} from "./canvasFileParser";
 import {classifyCanvasFileReference} from "./canvasFileReferenceService";
 import {buildContextPacketNode} from "./contextNodeBuilder";
 import {compressTextForContext} from "./contextText";
+import {renderContextPacketPrompt} from "./promptRenderService";
 import {
 	buildRelatedContextSection,
 	buildRelatedContextSectionWithFileContents,
@@ -33,6 +34,16 @@ type ContextPacketBuildOptions = Pick<
 	CanvasNodeCollectorSettings,
 	"relatedHopDepth" | "includeRelatedParentNodes" | "includeRelatedChildNodes"
 >;
+
+export type RenderedContextPromptResult = {
+	packet: ContextPacket;
+	prompt: string;
+};
+
+export type RenderedContextPromptOptions = ContextPacketBuildOptions & {
+	systemPrompt?: string;
+	userQuestion: string;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
@@ -227,6 +238,31 @@ export async function buildSelectedNodesContextPacketWithRelatedContent(
 	);
 
 	return buildContextPacketFromSections(nodes, budgetedResult, related);
+}
+
+export async function buildSelectedNodesRenderedPrompt(
+	app: App,
+	nodes: SelectedCanvasNodeInfo[],
+	canvasText: string | undefined,
+	options: RenderedContextPromptOptions,
+): Promise<RenderedContextPromptResult> {
+	const packet = await buildSelectedNodesContextPacketWithRelatedContent(
+		app,
+		nodes,
+		canvasText,
+		options,
+	);
+	const canvasData = parseCanvasData(canvasText);
+	const prompt = renderContextPacketPrompt(packet, {
+		systemPrompt: options.systemPrompt,
+		userQuestion: options.userQuestion,
+		canvasData,
+	});
+
+	return {
+		packet,
+		prompt,
+	};
 }
 
 // Save the selected node info into a serialized v1 ContextPacket.

@@ -6,3 +6,17 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+
+.ai99-question-bar {
+	display: flex;
+	align-items: center;
+	max-width: 420px;
+}
+
+.ai99-question-input {
+	width: min(360px, 32vw);
+	min-width: 180px;
+	height: 24px;
+	padding: 2px 8px;
+	font-size: 12px;
+}

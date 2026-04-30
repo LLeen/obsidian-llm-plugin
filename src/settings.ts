@@ -1,10 +1,12 @@
 import {App, PluginSettingTab, Setting} from "obsidian";
 import type CanvasNodeCollectorPlugin  from "./main";
+import {DEFAULT_SYSTEM_PROMPT} from "./services/llm/prompts";
 
 export interface CanvasNodeCollectorSettings  {
     apiKey: string;
     baseUrl: string;
     model: string;
+    systemPrompt: string;
     temperature: number;
     maxTokens: number;
     relatedHopDepth: number;
@@ -17,6 +19,7 @@ export const DEFAULT_SETTINGS: CanvasNodeCollectorSettings  = {
     apiKey: "",
     baseUrl: "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
     model: "glm-4.5",
+    systemPrompt: DEFAULT_SYSTEM_PROMPT,
     temperature: 0.2,
     maxTokens: 1024,
     relatedHopDepth: 1,
@@ -99,7 +102,7 @@ export class CanvasNodeCollectorSettingTab   extends PluginSettingTab {
 			}),
 	);
 
-    new Setting(containerEl)
+	new Setting(containerEl)
 	.setName("Model")
 	.setDesc("Example: glm-4.5")
 	.addText((text) =>
@@ -111,6 +114,31 @@ export class CanvasNodeCollectorSettingTab   extends PluginSettingTab {
 				await this.plugin.saveSettings();
 			}),
 	);
+
+	new Setting(containerEl)
+		.setName("Global prompt")
+		.setDesc("Used in the rendered <<global settings>> prompt section.")
+		.addTextArea((textArea) => {
+			textArea
+				.setPlaceholder(DEFAULT_SYSTEM_PROMPT)
+				.setValue(this.plugin.settings.systemPrompt)
+				.onChange(async (value) => {
+					this.plugin.settings.systemPrompt = value.trim().length > 0 ? value : DEFAULT_SYSTEM_PROMPT;
+					await this.plugin.saveSettings();
+				});
+
+			textArea.inputEl.rows = 8;
+			textArea.inputEl.cols = 48;
+		})
+		.addButton((button) =>
+			button
+				.setButtonText("Reset")
+				.onClick(async () => {
+					this.plugin.settings.systemPrompt = DEFAULT_SYSTEM_PROMPT;
+					await this.plugin.saveSettings();
+					this.display();
+				}),
+		);
 
 	new Setting(containerEl)
 		.setName("Related context")

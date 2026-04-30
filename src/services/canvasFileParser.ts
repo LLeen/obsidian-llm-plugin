@@ -37,6 +37,7 @@ function parseCanvasNodeData(value: unknown): CanvasFileNodeData | null {
 		height,
 		text: typeof value.text === "string" ? value.text : undefined,
 		file: typeof value.file === "string" ? value.file : undefined,
+		label: typeof value.label === "string" ? value.label : undefined,
 	};
 }
 

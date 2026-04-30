@@ -2,6 +2,8 @@ import {Notice, Plugin} from "obsidian";
 import {DEFAULT_SETTINGS, CanvasNodeCollectorSettings, CanvasNodeCollectorSettingTab} from "./settings";
 import type {SelectedCanvasNodeInfo} from "./canvasTypes";
 import {getActiveCanvasSelection, readCanvasFileTextByPath} from "./services/canvasService";
+import {parseCanvasData} from "./services/canvasFileParser";
+import {collectReadableNodesInsideSelectedGroups} from "./services/canvasGroupContextService";
 import {appendLlmSummaryNodeToActiveCanvas} from "./services/canvasResultService";
 import {
 	buildSelectedNodesContextPacketWithRelatedContent,
@@ -10,6 +12,7 @@ import {
 } from "./services/contextService";
 import {
 	CanvasFileContentSummary,
+	readCanvasFileNodeContents,
 	readSelectedCanvasFileContents,
 } from "./services/canvasFileReferenceService";
 import {generateAnswer} from "./services/llm/service";
@@ -75,17 +78,30 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 					return;
 				}
 
+				const resultSourceNodes = this.selectedCanvasNodes;
 				const fileContentSummary = await this.loadSelectedCanvasFileContents();
+				let groupContentSummary: CanvasFileContentSummary | undefined;
+
+				try {
+					groupContentSummary = await this.loadSelectedCanvasGroupContents();
+				} catch (error) {
+					console.debug("Failed to load selected Canvas group contents:", error);
+				}
 
 				const hasReadableContent = this.selectedCanvasNodes.some((node) =>
 					(node.text?.trim().length ?? 0) > 0,
 				);
 
 				if (!hasReadableContent) {
-					const missingOrErrorCount = fileContentSummary.missingCount + fileContentSummary.errorCount;
+					const missingOrErrorCount = fileContentSummary.missingCount
+						+ fileContentSummary.errorCount
+						+ (groupContentSummary?.missingCount ?? 0)
+						+ (groupContentSummary?.errorCount ?? 0);
+					const unsupportedCount = fileContentSummary.unsupportedCount + (groupContentSummary?.unsupportedCount ?? 0);
+					const notFileCount = fileContentSummary.notFileCount + (groupContentSummary?.notFileCount ?? 0);
 
 					new Notice(
-						`Selected Canvas nodes have no readable text, Markdown, or PDF content. Unsupported: ${fileContentSummary.unsupportedCount}; not file nodes: ${fileContentSummary.notFileCount}; missing/error: ${missingOrErrorCount}.`,
+						`Selected Canvas nodes have no readable text, Markdown, or PDF content. Unsupported: ${unsupportedCount}; not file nodes: ${notFileCount}; missing/error: ${missingOrErrorCount}.`,
 					);
 					return;
 				}
@@ -109,7 +125,7 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 
 					try {
 						await appendLlmSummaryNodeToActiveCanvas(this.app, {
-							selectedNodes: this.selectedCanvasNodes,
+							selectedNodes: resultSourceNodes,
 							resultText: result.text,
 							canvasFilePath: this.selectedCanvasFilePath ?? "",
 						});
@@ -207,6 +223,46 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 		return result.summary;
 	}
 
+	async loadSelectedCanvasGroupContents(): Promise<CanvasFileContentSummary> {
+		let canvasText: string | undefined;
+
+		try {
+			canvasText = await readCanvasFileTextByPath(this.app, this.selectedCanvasFilePath);
+		} catch (error) {
+			console.debug("Failed to read selected canvas file for group context:", error);
+		}
+
+		const groupContextNodes = collectReadableNodesInsideSelectedGroups(
+			this.selectedCanvasNodes,
+			parseCanvasData(canvasText),
+		);
+		const groupFileNodes = groupContextNodes.filter((node) => node.type === "file");
+		const groupFileContentResult = await readCanvasFileNodeContents(this.app, groupFileNodes);
+		const groupFileNodeById = new Map(groupFileContentResult.nodes.map((node) => [node.id, node]));
+		const enrichedGroupContextNodes = groupContextNodes.map((node) => groupFileNodeById.get(node.id) ?? node);
+
+		this.selectedCanvasNodes = [
+			...this.selectedCanvasNodes,
+			...enrichedGroupContextNodes,
+		];
+
+		console.debug("groupContextNodesArray:", enrichedGroupContextNodes.map((node) => ({
+			id: node.id,
+			type: node.type,
+			text: node.text,
+			file: node.file,
+			fileKind: node.fileKind,
+			fileExtension: node.fileExtension,
+			textSource: node.textSource,
+			fileContentStatus: node.fileContentStatus,
+			sourceGroupId: node.sourceGroupId,
+			sourceGroupLabel: node.sourceGroupLabel,
+			sourceGroupPath: node.sourceGroupPath,
+		})));
+
+		return groupFileContentResult.summary;
+	}
+
 	async buildCurrentContextPacket(): Promise<string> {
 		let canvasText: string | undefined;
 
@@ -236,6 +292,19 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 			fileExtension: item.node.fileExtension,
 			textSource: item.node.textSource,
 			fileContentStatus: item.node.fileContentStatus,
+			groupNodes: item.groupNodes?.map((node) => ({
+				id: node.id,
+				type: node.type,
+				text: node.text,
+				file: node.file,
+				fileKind: node.fileKind,
+				fileExtension: node.fileExtension,
+				textSource: node.textSource,
+				fileContentStatus: node.fileContentStatus,
+				sourceGroupId: node.sourceGroupId,
+				sourceGroupLabel: node.sourceGroupLabel,
+				sourceGroupPath: node.sourceGroupPath,
+			})),
 		})) ?? [];
 
 		console.debug("relatedNodesArray:", relatedNodesArray);
@@ -251,6 +320,9 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 				fileExtension: node.fileExtension,
 				textSource: node.textSource,
 				fileContentStatus: node.fileContentStatus,
+				sourceGroupId: node.sourceGroupId,
+				sourceGroupLabel: node.sourceGroupLabel,
+				sourceGroupPath: node.sourceGroupPath,
 			})),
 			truncated: packet.primary.truncated,
 			omittedNodeCount: packet.primary.omittedNodeCount,
@@ -268,6 +340,15 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 			file: item.node.file,
 			fileKind: item.node.fileKind,
 			fileExtension: item.node.fileExtension,
+			groupNodes: item.groupNodes?.map((node) => ({
+				id: node.id,
+				type: node.type,
+				textSource: node.textSource,
+				fileContentStatus: node.fileContentStatus,
+				sourceGroupId: node.sourceGroupId,
+				sourceGroupLabel: node.sourceGroupLabel,
+				sourceGroupPath: node.sourceGroupPath,
+			})),
 		})) ?? []);
 		console.debug("legacyTextPacket:", packet.legacyTextPacket);
 		return serializeContextPacket(packet);

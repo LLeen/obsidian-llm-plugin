@@ -1,9 +1,14 @@
-import type {CanvasFileContentStatus, CanvasFileKind, CanvasNodeTextSource} from "./canvasTypes";
+import type {
+	CanvasFileContentStatus,
+	CanvasFileKind,
+	CanvasGroupPathItem,
+	CanvasNodeTextSource,
+} from "./canvasTypes";
 
 export type ContextPacketNode = {
 index: number;
 id: string;
-type: "text" | "file" | "unknown";
+type: "text" | "file" | "group" | "unknown";
 position?: {
 x?: number;
 y?: number;
@@ -18,6 +23,9 @@ fileKind?: CanvasFileKind;
 fileExtension?: string;
 textSource?: CanvasNodeTextSource;
 fileContentStatus?: CanvasFileContentStatus;
+sourceGroupId?: string;
+sourceGroupLabel?: string;
+sourceGroupPath?: CanvasGroupPathItem[];
 };
 
 export type ContextPacketSection = {
@@ -38,6 +46,7 @@ directions: RelatedContextDirection[];
 connectionCount: number;
 viaSelectedNodeIds: string[];
 node: ContextPacketNode;
+groupNodes?: ContextPacketNode[];
 };
 
 export type RelatedContextSection = {

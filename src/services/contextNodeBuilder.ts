@@ -36,5 +36,8 @@ export function buildContextPacketNode(
 		fileExtension: node.fileExtension,
 		textSource: node.textSource,
 		fileContentStatus: node.fileContentStatus,
+		sourceGroupId: node.sourceGroupId,
+		sourceGroupLabel: node.sourceGroupLabel,
+		sourceGroupPath: node.sourceGroupPath,
 	};
 }

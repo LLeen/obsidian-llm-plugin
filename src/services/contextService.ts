@@ -2,6 +2,7 @@ import type {App} from "obsidian";
 import type {
 	SelectedCanvasNodeInfo,
 	CanvasNodeLike,
+	CanvasNodeStoredDataLike,
 } from "../canvasTypes";
 import type {
 	ContextPacket,
@@ -49,18 +50,24 @@ function readStringOrPath(value: unknown): string | undefined {
 	return undefined;
 }
 
+function readNodeField<T extends keyof CanvasNodeStoredDataLike>(node: CanvasNodeLike, key: T): CanvasNodeStoredDataLike[T] {
+	return node[key] ?? node.data?.[key] ?? node.unknownData?.[key];
+}
+
+function isKnownCanvasNodeType(value: unknown): value is "text" | "file" | "group" {
+	return value === "text" || value === "file" || value === "group";
+}
+
 //type checking
-function inferCanvasNodeType(node: CanvasNodeLike): "text" | "file" | "unknown" {
-	if (typeof node.type === "string") {
-		if (node.type === "text" || node.type === "file") return node.type;
+function inferCanvasNodeType(node: CanvasNodeLike): "text" | "file" | "group" | "unknown" {
+	const storedType = readNodeField(node, "type");
+
+	if (isKnownCanvasNodeType(storedType)) {
+		return storedType;
 	}
 
-	if (typeof node.data?.type === "string") {
-		if (node.data.type === "text" || node.data.type === "file") return node.data.type;
-	}
-
-	if (typeof node.text === "string") return "text";
-	if (readStringOrPath(node.file) || readStringOrPath(node.data?.file)) return "file";
+	if (typeof readNodeField(node, "text") === "string") return "text";
+	if (readStringOrPath(readNodeField(node, "file"))) return "file";
 
 	return "unknown";
 }
@@ -70,21 +77,23 @@ export function collectSelectedCanvasNodes(
 	selection: CanvasNodeLike[],
 ): SelectedCanvasNodeInfo[] {
 	return selection.map((node: CanvasNodeLike) => {
-		const textValue = node.text ?? node.data?.text;
-		const fileValue = node.file ?? node.data?.file;
+		const textValue = readNodeField(node, "text");
+		const fileValue = readNodeField(node, "file");
+		const labelValue = readNodeField(node, "label");
 		const file = readStringOrPath(fileValue);
 		const fileClassification = classifyCanvasFileReference(file);
 		const type = inferCanvasNodeType(node);
 
 		return {
-			id: node.id ?? node.data?.id ?? "",
+			id: readNodeField(node, "id") ?? "",
 			type,
-			x: node.x ?? node.data?.x,
-			y: node.y ?? node.data?.y,
-			width: node.width ?? node.data?.width,
-			height: node.height ?? node.data?.height,
+			x: readNodeField(node, "x"),
+			y: readNodeField(node, "y"),
+			width: readNodeField(node, "width"),
+			height: readNodeField(node, "height"),
 			text: typeof textValue === "string" ? textValue : undefined,
 			file,
+			label: typeof labelValue === "string" ? labelValue : undefined,
 			fileKind: type === "file" ? fileClassification.fileKind : undefined,
 			fileExtension: type === "file" ? fileClassification.fileExtension : undefined,
 			textSource: typeof textValue === "string" ? "canvas-text" : undefined,

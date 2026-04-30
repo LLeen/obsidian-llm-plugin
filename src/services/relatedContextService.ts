@@ -14,6 +14,7 @@ import {
 	classifyCanvasFileReference,
 	readCanvasFileNodeContents,
 } from "./canvasFileReferenceService";
+import {collectReadableNodesInsideGroups} from "./canvasGroupContextService";
 import {buildContextPacketNode} from "./contextNodeBuilder";
 
 export type RelatedContextOptions = {
@@ -30,6 +31,7 @@ type RelatedNodeCandidate = {
 	minHop: number;
 	directions: RelatedContextDirection[];
 	node: SelectedCanvasNodeInfo;
+	groupNodes?: SelectedCanvasNodeInfo[];
 	hasReadableContent: boolean;
 };
 
@@ -57,7 +59,7 @@ const MIN_RELATED_HOP_DEPTH = 1;
 const MAX_RELATED_HOP_DEPTH = 4;
 
 function normalizeCanvasDataNode(node: CanvasFileNodeData): SelectedCanvasNodeInfo {
-	const normalizedType = node.type === "text" || node.type === "file" ? node.type : "unknown";
+	const normalizedType = node.type === "text" || node.type === "file" || node.type === "group" ? node.type : "unknown";
 	const file = node.type === "file" ? node.file : undefined;
 	const fileClassification = classifyCanvasFileReference(file);
 
@@ -70,6 +72,7 @@ function normalizeCanvasDataNode(node: CanvasFileNodeData): SelectedCanvasNodeIn
 		height: node.height,
 		text: node.type === "text" ? node.text : undefined,
 		file,
+		label: node.type === "group" ? node.label : undefined,
 		fileKind: normalizedType === "file" ? fileClassification.fileKind : undefined,
 		fileExtension: normalizedType === "file" ? fileClassification.fileExtension : undefined,
 		textSource: node.type === "text" && typeof node.text === "string" ? "canvas-text" : undefined,
@@ -315,7 +318,14 @@ function buildRelatedContextItems(
 		connectionCount: candidate.connectionCount,
 		viaSelectedNodeIds: candidate.viaSelectedNodeIds,
 		node: buildContextPacketNode(candidate.node, index, {maxTextChars: options.maxRelatedNodeTextChars}),
+		groupNodes: candidate.groupNodes?.map((node, groupNodeIndex) =>
+			buildContextPacketNode(node, groupNodeIndex, {maxTextChars: options.maxRelatedNodeTextChars}),
+		),
 	}));
+}
+
+function getRootSourceGroupId(node: SelectedCanvasNodeInfo): string | undefined {
+	return node.sourceGroupPath?.[0]?.id ?? node.sourceGroupId;
 }
 
 export function buildRelatedContextSection(
@@ -357,19 +367,45 @@ export async function buildRelatedContextSectionWithFileContents(
 	const relatedFileNodes = limitedCandidates
 		.map((candidate) => candidate.node)
 		.filter((node) => node.type === "file");
+	const relatedGroupNodes = limitedCandidates
+		.map((candidate) => candidate.node)
+		.filter((node) => node.type === "group");
+	const selectedIds = new Set(selectedNodes.map((node) => node.id).filter((id) => id.length > 0));
+	const relatedGroupContextNodes = collectReadableNodesInsideGroups(relatedGroupNodes, canvasData, selectedIds);
+	const relatedGroupFileNodes = relatedGroupContextNodes.filter((node) => node.type === "file");
 	const relatedFileContents = await readCanvasFileNodeContents(
 		app,
-		relatedFileNodes,
+		[...relatedFileNodes, ...relatedGroupFileNodes],
 	);
 	const enrichedFileNodeById = new Map(
 		relatedFileContents.nodes.map((node) => [node.id, node]),
 	);
+	const enrichedGroupContextNodes = relatedGroupContextNodes.map((node) =>
+		enrichedFileNodeById.get(node.id) ?? node,
+	);
+	const groupContextNodesByGroupId = new Map<string, SelectedCanvasNodeInfo[]>();
+
+	for (const groupNode of enrichedGroupContextNodes) {
+		const rootGroupId = getRootSourceGroupId(groupNode);
+
+		if (!rootGroupId) {
+			continue;
+		}
+
+		const groupNodes = groupContextNodesByGroupId.get(rootGroupId) ?? [];
+
+		groupNodes.push(groupNode);
+		groupContextNodesByGroupId.set(rootGroupId, groupNodes);
+	}
+
 	const enrichedCandidates = limitedCandidates.map((candidate): RelatedNodeCandidate => ({
 		...candidate,
 		node: enrichedFileNodeById.get(candidate.node.id) ?? candidate.node,
+		groupNodes: groupContextNodesByGroupId.get(candidate.node.id),
 		hasReadableContent: typeof enrichedFileNodeById.get(candidate.node.id)?.text === "string"
 			|| typeof candidate.node.text === "string"
-			|| typeof candidate.node.file === "string",
+			|| typeof candidate.node.file === "string"
+			|| (groupContextNodesByGroupId.get(candidate.node.id)?.some((node) => typeof node.text === "string") ?? false),
 	}));
 	const items = buildRelatedContextItems(enrichedCandidates, normalizedOptions);
 

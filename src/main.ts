@@ -4,9 +4,9 @@ import type {SelectedCanvasNodeInfo} from "./canvasTypes";
 import {getActiveCanvasSelection, readCanvasFileTextByPath} from "./services/canvasService";
 import {appendLlmSummaryNodeToActiveCanvas} from "./services/canvasResultService";
 import {
-	buildSelectedNodesContextPacket,
-	buildSelectedNodesTextPacket,
+	buildSelectedNodesContextPacketWithRelatedContent,
 	collectSelectedCanvasNodes,
+	serializeContextPacket,
 } from "./services/contextService";
 import {
 	CanvasFileContentSummary,
@@ -216,7 +216,29 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 			console.debug("Failed to read selected canvas file for related context:", error);
 		}
 
-		const packet = buildSelectedNodesContextPacket(this.selectedCanvasNodes, canvasText);
+		const packet = await buildSelectedNodesContextPacketWithRelatedContent(
+			this.app,
+			this.selectedCanvasNodes,
+			canvasText,
+			this.settings,
+		);
+		const relatedNodesArray = packet.related?.items.map((item) => ({
+			id: item.node.id,
+			type: item.node.type,
+			score: item.score,
+			minHop: item.minHop,
+			directions: item.directions,
+			connectionCount: item.connectionCount,
+			viaSelectedNodeIds: item.viaSelectedNodeIds,
+			text: item.node.text,
+			file: item.node.file,
+			fileKind: item.node.fileKind,
+			fileExtension: item.node.fileExtension,
+			textSource: item.node.textSource,
+			fileContentStatus: item.node.fileContentStatus,
+		})) ?? [];
+
+		console.debug("relatedNodesArray:", relatedNodesArray);
 		console.debug("primaryContext:", {
 			nodeCount: packet.primary.nodeCount,
 			textNodeCount: packet.primary.textNodeCount,
@@ -238,6 +260,8 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 		console.debug("relatedCompressedContexts:", packet.related?.items.map((item) => ({
 			id: item.node.id,
 			score: item.score,
+			minHop: item.minHop,
+			directions: item.directions,
 			connectionCount: item.connectionCount,
 			viaSelectedNodeIds: item.viaSelectedNodeIds,
 			text: item.node.text,
@@ -246,7 +270,7 @@ export default class CanvasNodeCollectorPlugin extends Plugin {
 			fileExtension: item.node.fileExtension,
 		})) ?? []);
 		console.debug("legacyTextPacket:", packet.legacyTextPacket);
-		return buildSelectedNodesTextPacket(this.selectedCanvasNodes, canvasText);
+		return serializeContextPacket(packet);
 	}
 
 	onunload() {

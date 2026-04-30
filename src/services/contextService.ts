@@ -1,3 +1,4 @@
+import type {App} from "obsidian";
 import type {
 	SelectedCanvasNodeInfo,
 	CanvasNodeLike,
@@ -6,11 +7,15 @@ import type {
 	ContextPacket,
 	ContextPacketNode,
 } from "../contextTypes";
+import type {CanvasNodeCollectorSettings} from "../settings";
 import {parseCanvasData} from "./canvasFileParser";
 import {classifyCanvasFileReference} from "./canvasFileReferenceService";
 import {buildContextPacketNode} from "./contextNodeBuilder";
 import {compressTextForContext} from "./contextText";
-import {buildRelatedContextSection} from "./relatedContextService";
+import {
+	buildRelatedContextSection,
+	buildRelatedContextSectionWithFileContents,
+} from "./relatedContextService";
 
 const MAX_NODE_TEXT_CHARS = 1000;
 const MAX_TOTAL_TEXT_CHARS = 4000;
@@ -22,6 +27,11 @@ type PacketTextBudgetResult = {
 	truncated: boolean;
 	omittedNodeCount: number;
 };
+
+type ContextPacketBuildOptions = Pick<
+	CanvasNodeCollectorSettings,
+	"relatedHopDepth" | "includeRelatedParentNodes" | "includeRelatedChildNodes"
+>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
@@ -130,20 +140,11 @@ function applyTextBudget(nodes: ContextPacketNode[]): PacketTextBudgetResult {
 	};
 }
 
-export function buildSelectedNodesContextPacket(
+function buildContextPacketFromSections(
 	nodes: SelectedCanvasNodeInfo[],
-	canvasText?: string,
+	budgetedResult: PacketTextBudgetResult,
+	related: ContextPacket["related"],
 ): ContextPacket {
-	const structuredNodes = nodes.map((node, index) => buildContextPacketNode(node, index));
-	const budgetedResult = applyTextBudget(structuredNodes);
-	const related = buildRelatedContextSection(
-		nodes,
-		parseCanvasData(canvasText),
-		{
-			maxRelatedItems: MAX_RELATED_ITEMS,
-			maxRelatedNodeTextChars: MAX_RELATED_NODE_TEXT_CHARS,
-		},
-	);
 	const legacyTextPacket = buildLegacyTextPacket(budgetedResult.nodes);
 
 	return {
@@ -167,9 +168,65 @@ export function buildSelectedNodesContextPacket(
 	};
 }
 
-// Save the selected node info into a serialized v1 ContextPacket.
-export function buildSelectedNodesTextPacket(nodes: SelectedCanvasNodeInfo[], canvasText?: string): string {
-	const packet = buildSelectedNodesContextPacket(nodes, canvasText);
-
+export function serializeContextPacket(packet: ContextPacket): string {
 	return JSON.stringify(packet, null, 2);
+}
+
+export function buildSelectedNodesContextPacket(
+	nodes: SelectedCanvasNodeInfo[],
+	canvasText?: string,
+	options?: ContextPacketBuildOptions,
+): ContextPacket {
+	const structuredNodes = nodes.map((node, index) => buildContextPacketNode(node, index));
+	const budgetedResult = applyTextBudget(structuredNodes);
+	const canvasData = parseCanvasData(canvasText);
+	const related = buildRelatedContextSection(
+		nodes,
+		canvasData,
+		{
+			maxRelatedItems: MAX_RELATED_ITEMS,
+			maxRelatedNodeTextChars: MAX_RELATED_NODE_TEXT_CHARS,
+			relatedHopDepth: options?.relatedHopDepth,
+			includeRelatedParentNodes: options?.includeRelatedParentNodes,
+			includeRelatedChildNodes: options?.includeRelatedChildNodes,
+		},
+	);
+
+	return buildContextPacketFromSections(nodes, budgetedResult, related);
+}
+
+export async function buildSelectedNodesContextPacketWithRelatedContent(
+	app: App,
+	nodes: SelectedCanvasNodeInfo[],
+	canvasText?: string,
+	options?: ContextPacketBuildOptions,
+): Promise<ContextPacket> {
+	const structuredNodes = nodes.map((node, index) => buildContextPacketNode(node, index));
+	const budgetedResult = applyTextBudget(structuredNodes);
+	const canvasData = parseCanvasData(canvasText);
+	const related = await buildRelatedContextSectionWithFileContents(
+		app,
+		nodes,
+		canvasData,
+		{
+			maxRelatedItems: MAX_RELATED_ITEMS,
+			maxRelatedNodeTextChars: MAX_RELATED_NODE_TEXT_CHARS,
+			relatedHopDepth: options?.relatedHopDepth,
+			includeRelatedParentNodes: options?.includeRelatedParentNodes,
+			includeRelatedChildNodes: options?.includeRelatedChildNodes,
+		},
+	);
+
+	return buildContextPacketFromSections(nodes, budgetedResult, related);
+}
+
+// Save the selected node info into a serialized v1 ContextPacket.
+export function buildSelectedNodesTextPacket(
+	nodes: SelectedCanvasNodeInfo[],
+	canvasText?: string,
+	options?: ContextPacketBuildOptions,
+): string {
+	const packet = buildSelectedNodesContextPacket(nodes, canvasText, options);
+
+	return serializeContextPacket(packet);
 }

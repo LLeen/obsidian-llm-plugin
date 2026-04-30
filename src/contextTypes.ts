@@ -29,8 +29,12 @@ omittedNodeCount: number;
 nodes: ContextPacketNode[];
 };
 
+export type RelatedContextDirection = "parent" | "child";
+
 export type RelatedContextItem = {
 score: number;
+minHop: number;
+directions: RelatedContextDirection[];
 connectionCount: number;
 viaSelectedNodeIds: string[];
 node: ContextPacketNode;

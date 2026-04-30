@@ -248,20 +248,20 @@ async function readPdfFileNode(app: App, node: SelectedCanvasNodeInfo, file: TFi
 	}
 }
 
-export async function readSelectedCanvasFileContents(
+export async function readCanvasFileNodeContents(
 	app: App,
 	nodes: SelectedCanvasNodeInfo[],
 ): Promise<{
 	nodes: SelectedCanvasNodeInfo[];
 	summary: CanvasFileContentSummary;
 }> {
-	console.debug("Reading selected Canvas file content", {
-		selectedNodeCount: nodes.length,
+	console.debug("Reading Canvas file node content", {
+		nodeCount: nodes.length,
 	});
 
 	const enrichedNodes = await Promise.all(nodes.map(async (node): Promise<SelectedCanvasNodeInfo> => {
 		if (node.type !== "file") {
-			console.debug("Selected Canvas node is not a file node", {
+			console.debug("Canvas node is not a file node", {
 				id: node.id,
 				type: node.type,
 			});
@@ -286,7 +286,7 @@ export async function readSelectedCanvasFileContents(
 		const normalizedFilePath = normalizeCanvasFilePath(node.file);
 		const isPdf = normalizedFilePath ? isPdfPath(normalizedFilePath) : false;
 
-		console.debug("Selected Canvas file node path", {
+		console.debug("Canvas file node path", {
 			path: normalizedFilePath,
 			isPdf,
 			fileKind: node.fileKind,
@@ -358,6 +358,16 @@ export async function readSelectedCanvasFileContents(
 			notFileCount: countStatus(enrichedNodes, "not-file"),
 		},
 	};
+}
+
+export async function readSelectedCanvasFileContents(
+	app: App,
+	nodes: SelectedCanvasNodeInfo[],
+): Promise<{
+	nodes: SelectedCanvasNodeInfo[];
+	summary: CanvasFileContentSummary;
+}> {
+	return readCanvasFileNodeContents(app, nodes);
 }
 
 export const readSelectedMarkdownFileContents = readSelectedCanvasFileContents;
